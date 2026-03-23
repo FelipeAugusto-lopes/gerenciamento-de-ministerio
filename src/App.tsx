@@ -3,8 +3,12 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { StoreProvider } from "@/store/StoreContext";
+import AppLayout from "@/components/AppLayout";
+import Schedules from "@/pages/Schedules";
+import Members from "@/pages/Members";
+import Ministries from "@/pages/Ministries";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -13,13 +17,18 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <StoreProvider>
+        <BrowserRouter>
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Schedules />} />
+              <Route path="/membros" element={<Members />} />
+              <Route path="/ministerios" element={<Ministries />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        </BrowserRouter>
+      </StoreProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
