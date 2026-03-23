@@ -23,6 +23,16 @@ export interface Schedule {
   status: ScheduleStatus;
 }
 
+export type UserRole = "admin" | "leader";
+
+export interface AppUser {
+  id: string;
+  name: string;
+  role: UserRole;
+  ministryId?: string; // for leaders, which ministry they manage
+  password: string;
+}
+
 export const MINISTRY_COLORS = [
   "152 45% 28%",
   "38 80% 55%",
@@ -49,4 +59,8 @@ export const DEFAULT_MINISTRIES: Ministry[] = [
   { id: "9", name: "INA Kids 3-6", colorIndex: 8 },
   { id: "10", name: "INA Kids 7-8", colorIndex: 9 },
   { id: "11", name: "INA Kids 9-12", colorIndex: 10 },
+];
+
+export const DEFAULT_USERS: AppUser[] = [
+  { id: "admin-1", name: "Administrador", role: "admin", password: "admin123" },
 ];
