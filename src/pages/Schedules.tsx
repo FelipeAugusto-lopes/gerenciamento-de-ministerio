@@ -3,7 +3,7 @@ import { useStore } from "@/store/StoreContext";
 import { useAuth } from "@/store/AuthContext";
 import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, Wand2, History, Search, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, Wand2, History, Search, CheckCircle2, Bell, Clock, BarChart3, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,7 +14,15 @@ import { cn } from "@/lib/utils";
 const statusColors: Record<ScheduleStatus, string> = {
   Pendente: "bg-accent/20 text-accent-foreground border-accent/30",
   Confirmado: "bg-primary/15 text-primary border-primary/30",
+  Recusado: "bg-destructive/15 text-destructive border-destructive/30",
   Concluído: "bg-muted text-muted-foreground border-border",
+};
+
+const statusIcons: Record<ScheduleStatus, string> = {
+  Pendente: "⏳",
+  Confirmado: "✅",
+  Recusado: "❌",
+  Concluído: "✔️",
 };
 
 interface ConflictInfo {
@@ -24,8 +32,8 @@ interface ConflictInfo {
 }
 
 export default function SchedulesPage() {
-  const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule } = useStore();
-  const { isAdmin, canEditMinistry, currentUser } = useAuth();
+  const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule, addNotification, notifications, markAllNotificationsRead } = useStore();
+  const { isAdmin, canEditMinistry } = useAuth();
 
   const [showAdd, setShowAdd] = useState(false);
   const [filterDate, setFilterDate] = useState("");
@@ -38,15 +46,16 @@ export default function SchedulesPage() {
   const [genDate, setGenDate] = useState(() => {
     const d = new Date();
     const day = d.getDay();
-    const diff = day === 0 ? 0 : 7 - day; // next sunday
+    const diff = day === 0 ? 0 : 7 - day;
     d.setDate(d.getDate() + diff);
     return d.toISOString().split("T")[0];
   });
   const [genMinistry, setGenMinistry] = useState("all");
   const [genShift, setGenShift] = useState<Shift>("Manhã");
-  const [savedFeedback, setSavedFeedback] = useState(false);
+  const [savedFeedback, setSavedFeedback] = useState("");
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
@@ -56,10 +65,21 @@ export default function SchedulesPage() {
     status: "Pendente" as ScheduleStatus,
   });
 
-  // Show saved feedback
-  const showSaved = () => {
-    setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 2000);
+  const showSaved = (msg = "Salvo com sucesso!") => {
+    setSavedFeedback(msg);
+    setTimeout(() => setSavedFeedback(""), 2500);
+  };
+
+  // Notification helper
+  const sendNotification = (memberId: string, scheduleId: string, ministryName: string, date: string, shift: string) => {
+    const member = members.find(m => m.id === memberId);
+    addNotification({
+      memberId,
+      scheduleId,
+      message: `${member?.name || "Você"} foi escalado(a) para ${ministryName} na data ${formatDate(date)} — turno ${shift}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
   };
 
   // Conflict detection
@@ -114,19 +134,39 @@ export default function SchedulesPage() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [schedules, filterDate, filterMinistry, filterShift]);
 
+  // Status summary
+  const statusSummary = useMemo(() => {
+    const counts = { Pendente: 0, Confirmado: 0, Recusado: 0, Concluído: 0 };
+    filtered.forEach(s => { counts[s.status]++; });
+    return counts;
+  }, [filtered]);
+
   const handleAdd = () => {
     if (!newForm.ministryId || !newForm.memberId || !newForm.date) return;
     if (isBlocked) return;
     addSchedule(newForm);
+    const ministry = ministries.find(m => m.id === newForm.ministryId);
+    sendNotification(newForm.memberId, "", ministry?.name || "?", newForm.date, newForm.shift);
     setShowAdd(false);
     setNewForm({ ministryId: "", date: new Date().toISOString().split("T")[0], shift: "Manhã", memberId: "", status: "Pendente" });
     showSaved();
   };
 
-  // Smart suggestion: members sorted by least recent service for a ministry
+  // Smart suggestion: avoid consecutive weeks + least recent
   const getSuggestedMember = (ministryId: string, date: string, shift: Shift): string | null => {
     const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId));
     if (ministryMembers.length === 0) return null;
+
+    // Get previous week date
+    const targetDate = new Date(date + "T12:00:00");
+    const prevWeek = new Date(targetDate);
+    prevWeek.setDate(prevWeek.getDate() - 7);
+    const prevWeekStr = prevWeek.toISOString().split("T")[0];
+
+    // Members who served last week in this ministry
+    const servedLastWeek = new Set(
+      schedules.filter(s => s.ministryId === ministryId && s.date === prevWeekStr).map(s => s.memberId)
+    );
 
     const lastServed = new Map<string, string>();
     schedules
@@ -136,14 +176,16 @@ export default function SchedulesPage() {
         if (!lastServed.has(s.memberId)) lastServed.set(s.memberId, s.date);
       });
 
-    // Sort: never served first, then least recently served
+    // Sort: never served > not last week + least recent > last week + least recent
     const sorted = [...ministryMembers].sort((a, b) => {
+      const aLastWeek = servedLastWeek.has(a.id) ? 1 : 0;
+      const bLastWeek = servedLastWeek.has(b.id) ? 1 : 0;
+      if (aLastWeek !== bLastWeek) return aLastWeek - bLastWeek;
       const aDate = lastServed.get(a.id) || "0000-00-00";
       const bDate = lastServed.get(b.id) || "0000-00-00";
       return aDate.localeCompare(bDate);
     });
 
-    // Find first member without conflict on that date
     for (const m of sorted) {
       const conflict = getConflictsForMember(m.id, date, shift);
       const blocked = conflict && (blockSameDay || (blockSameShift && conflict.sameShift));
@@ -158,10 +200,7 @@ export default function SchedulesPage() {
     let count = 0;
 
     for (const ministry of targetMinistries) {
-      // Check permission
       if (!canEditMinistry(ministry.id)) continue;
-
-      // Check if already exists
       const exists = schedules.some(s => s.ministryId === ministry.id && s.date === genDate && s.shift === genShift);
       if (exists) continue;
 
@@ -175,19 +214,37 @@ export default function SchedulesPage() {
         memberId: suggestedMember,
         status: "Pendente",
       });
+      sendNotification(suggestedMember, "", ministry.name, genDate, genShift);
       count++;
     }
 
     setShowGenerate(false);
-    if (count > 0) showSaved();
+    if (count > 0) showSaved(`${count} escala${count > 1 ? "s" : ""} gerada${count > 1 ? "s" : ""} com sucesso!`);
   };
 
-  // Member history
+  // Member history with stats
   const memberHistory = useMemo(() => {
     if (!historyMemberId) return [];
-    return schedules
-      .filter(s => s.memberId === historyMemberId)
-      .sort((a, b) => b.date.localeCompare(a.date));
+    return schedules.filter(s => s.memberId === historyMemberId).sort((a, b) => b.date.localeCompare(a.date));
+  }, [historyMemberId, schedules]);
+
+  const memberStats = useMemo(() => {
+    if (!historyMemberId) return null;
+    const history = schedules.filter(s => s.memberId === historyMemberId);
+    if (history.length === 0) return { total: 0, lastServed: null as string | null, frequency: "Nunca escalado" };
+    const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+    const lastDate = sorted[0].date;
+
+    // Frequency: count per last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recent = history.filter(s => new Date(s.date) >= thirtyDaysAgo).length;
+
+    return {
+      total: history.length,
+      lastServed: lastDate,
+      frequency: recent === 0 ? "Nenhuma nos últimos 30 dias" : `${recent}x nos últimos 30 dias`,
+    };
   }, [historyMemberId, schedules]);
 
   const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0);
@@ -214,15 +271,14 @@ export default function SchedulesPage() {
     }).join(", ");
   };
 
-  // Visible ministries for leaders
-  const visibleMinistries = isAdmin ? ministries : ministries;
+  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Saved feedback */}
       {savedFeedback && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
-          <CheckCircle2 className="h-5 w-5" /> Salvo com sucesso!
+          <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
         </div>
       )}
 
@@ -232,6 +288,12 @@ export default function SchedulesPage() {
           <p className="text-sm text-muted-foreground">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-12 px-4 text-base relative">
+            <Bell className="h-5 w-5" />
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground font-bold">{unreadNotifications}</span>
+            )}
+          </Button>
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-12 px-5 text-base relative">
             <Filter className="h-5 w-5" /> Filtros
             {activeFilters > 0 && (
@@ -246,6 +308,28 @@ export default function SchedulesPage() {
           </Button>
         </div>
       </div>
+
+      {/* Status summary indicators */}
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg border bg-accent/10 p-3 text-center">
+            <p className="text-2xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Pendentes</p>
+          </div>
+          <div className="rounded-lg border bg-primary/10 p-3 text-center">
+            <p className="text-2xl font-bold text-primary">{statusSummary.Confirmado}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Confirmados</p>
+          </div>
+          <div className="rounded-lg border bg-destructive/10 p-3 text-center">
+            <p className="text-2xl font-bold text-destructive">{statusSummary.Recusado}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><XCircle className="h-3 w-3" /> Recusados</p>
+          </div>
+          <div className="rounded-lg border bg-muted p-3 text-center">
+            <p className="text-2xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Concluídos</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       {showFilters && (
@@ -289,8 +373,7 @@ export default function SchedulesPage() {
       {showAdd && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 animate-fade-in space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
-            <Shield className="h-4 w-4" />
-            Regras de Conflito
+            <Shield className="h-4 w-4" /> Regras de Conflito
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex items-center justify-between rounded-lg border bg-card p-3 cursor-pointer">
@@ -320,7 +403,7 @@ export default function SchedulesPage() {
               <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, memberId: "" }))}>
                 <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {visibleMinistries.filter(m => canEditMinistry(m.id)).map(m => (
+                  {ministries.filter(m => canEditMinistry(m.id)).map(m => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -330,12 +413,7 @@ export default function SchedulesPage() {
               <label className="text-sm font-medium text-foreground mb-1.5 block">Buscar pessoa</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Digite o nome..."
-                  value={memberSearch}
-                  onChange={e => setMemberSearch(e.target.value)}
-                  className="h-12 text-base pl-10"
-                />
+                <Input placeholder="Digite o nome..." value={memberSearch} onChange={e => setMemberSearch(e.target.value)} className="h-12 text-base pl-10" />
               </div>
             </div>
             <div>
@@ -379,7 +457,6 @@ export default function SchedulesPage() {
             </div>
           </div>
 
-          {/* Conflict alert */}
           {currentConflict && (
             <div className={cn(
               "rounded-lg border p-3 animate-fade-in flex items-start gap-3",
@@ -422,9 +499,15 @@ export default function SchedulesPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <p className="text-sm text-muted-foreground">
-              Sugere automaticamente as pessoas que serviram menos recentemente em cada ministério.
-            </p>
+            <div className="rounded-lg bg-muted/50 border p-3 text-sm text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Critérios inteligentes:</p>
+              <ul className="space-y-0.5 text-xs">
+                <li>• Prioriza quem serviu menos recentemente</li>
+                <li>• Evita repetir a mesma pessoa em semanas consecutivas</li>
+                <li>• Respeita os ministérios de cada membro</li>
+                <li>• Respeita as regras de conflito ativas</li>
+              </ul>
+            </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
               <Input type="date" value={genDate} onChange={e => setGenDate(e.target.value)} className="h-12 text-base" />
@@ -458,6 +541,44 @@ export default function SchedulesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Notifications dialog */}
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display">
+              <Bell className="h-5 w-5 text-primary" /> Notificações
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 pt-2">
+            {notifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma notificação.</p>
+            ) : (
+              <>
+                {unreadNotifications > 0 && (
+                  <Button variant="ghost" size="sm" className="text-xs mb-2" onClick={() => markAllNotificationsRead()}>
+                    Marcar todas como lidas
+                  </Button>
+                )}
+                {notifications.slice(0, 50).map(n => {
+                  const member = members.find(m => m.id === n.memberId);
+                  return (
+                    <div key={n.id} className={cn(
+                      "rounded-lg border p-3 text-sm transition-colors",
+                      n.read ? "bg-card" : "bg-primary/5 border-primary/20"
+                    )}>
+                      <p className="text-foreground">{n.message}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {new Date(n.createdAt).toLocaleDateString("pt-BR")} às {new Date(n.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Member history dialog */}
       <Dialog open={!!historyMemberId} onOpenChange={() => setHistoryMemberId(null)}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
@@ -467,6 +588,25 @@ export default function SchedulesPage() {
               Histórico — {members.find(m => m.id === historyMemberId)?.name}
             </DialogTitle>
           </DialogHeader>
+
+          {/* Stats */}
+          {memberStats && (
+            <div className="grid grid-cols-3 gap-3 pt-2">
+              <div className="rounded-lg border bg-muted/50 p-3 text-center">
+                <p className="text-xl font-bold text-foreground">{memberStats.total}</p>
+                <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1"><BarChart3 className="h-3 w-3" /> Total</p>
+              </div>
+              <div className="rounded-lg border bg-muted/50 p-3 text-center">
+                <p className="text-sm font-bold text-foreground">{memberStats.lastServed ? formatDate(memberStats.lastServed) : "—"}</p>
+                <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Última vez</p>
+              </div>
+              <div className="rounded-lg border bg-muted/50 p-3 text-center">
+                <p className="text-sm font-bold text-foreground">{memberStats.frequency}</p>
+                <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1"><Calendar className="h-3 w-3" /> Frequência</p>
+              </div>
+            </div>
+          )}
+
           {memberHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma escala registrada.</p>
           ) : (
@@ -480,7 +620,9 @@ export default function SchedulesPage() {
                       <span className="text-foreground">{formatDate(s.date)}</span>
                       <span className="text-muted-foreground ml-2">{getDayOfWeek(s.date)} • {s.shift}</span>
                     </div>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{s.status}</span>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>
+                      {statusIcons[s.status]} {s.status}
+                    </span>
                   </div>
                 );
               })}
@@ -506,12 +648,19 @@ export default function SchedulesPage() {
               const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
               const editable = canEditMinistry(s.ministryId);
               return (
-                <div key={s.id} className={cn("rounded-lg border bg-card p-4 space-y-2", hasConflict && "border-destructive/50 ring-1 ring-destructive/20")} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
+                <div key={s.id} className={cn(
+                  "rounded-lg border bg-card p-4 space-y-2",
+                  hasConflict && "border-destructive/50 ring-1 ring-destructive/20",
+                  s.status === "Recusado" && "opacity-70"
+                )} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
                   <div className="flex items-center justify-between">
                     <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                    {editable && (
-                      <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <span className="text-base">{statusIcons[s.status]}</span>
+                      {editable && (
+                        <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => setHistoryMemberId(s.memberId)} className="font-medium text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5">
                     {member?.name || "?"}
@@ -534,13 +683,14 @@ export default function SchedulesPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Pendente">Pendente</SelectItem>
-                        <SelectItem value="Confirmado">Confirmado</SelectItem>
-                        <SelectItem value="Concluído">Concluído</SelectItem>
+                        <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                        <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                        <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                        <SelectItem value="Concluído">✔️ Concluído</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
-                    <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border w-fit", statusColors[s.status])}>{s.status}</span>
+                    <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border w-fit", statusColors[s.status])}>{statusIcons[s.status]} {s.status}</span>
                   )}
                 </div>
               );
@@ -569,7 +719,11 @@ export default function SchedulesPage() {
                   const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
                   const editable = canEditMinistry(s.ministryId);
                   return (
-                    <tr key={s.id} className={cn("border-b last:border-0 transition-colors", hasConflict ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/30")}>
+                    <tr key={s.id} className={cn(
+                      "border-b last:border-0 transition-colors",
+                      hasConflict ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/30",
+                      s.status === "Recusado" && "opacity-60"
+                    )}>
                       <td className="px-4 py-3">
                         <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
                       </td>
@@ -597,13 +751,14 @@ export default function SchedulesPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Pendente">Pendente</SelectItem>
-                              <SelectItem value="Confirmado">Confirmado</SelectItem>
-                              <SelectItem value="Concluído">Concluído</SelectItem>
+                              <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                              <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                              <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                              <SelectItem value="Concluído">✔️ Concluído</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{s.status}</span>
+                          <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{statusIcons[s.status]} {s.status}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">

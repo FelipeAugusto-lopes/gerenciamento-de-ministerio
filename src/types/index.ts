@@ -12,7 +12,7 @@ export interface Member {
 }
 
 export type Shift = "Manhã" | "Noite";
-export type ScheduleStatus = "Pendente" | "Confirmado" | "Concluído";
+export type ScheduleStatus = "Pendente" | "Confirmado" | "Recusado" | "Concluído";
 
 export interface Schedule {
   id: string;
@@ -23,13 +23,22 @@ export interface Schedule {
   status: ScheduleStatus;
 }
 
+export interface Notification {
+  id: string;
+  memberId: string;
+  scheduleId: string;
+  message: string;
+  createdAt: string; // ISO datetime
+  read: boolean;
+}
+
 export type UserRole = "admin" | "leader";
 
 export interface AppUser {
   id: string;
   name: string;
   role: UserRole;
-  ministryId?: string; // for leaders, which ministry they manage
+  ministryId?: string;
   password: string;
 }
 
