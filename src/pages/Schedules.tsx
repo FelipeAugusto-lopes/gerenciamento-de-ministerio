@@ -32,7 +32,7 @@ interface ConflictInfo {
 }
 
 export default function SchedulesPage() {
-  const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule, addNotification, notifications } = useStore();
+  const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule, addNotification, notifications, markAllNotificationsRead } = useStore();
   const { isAdmin, canEditMinistry } = useAuth();
 
   const [showAdd, setShowAdd] = useState(false);
