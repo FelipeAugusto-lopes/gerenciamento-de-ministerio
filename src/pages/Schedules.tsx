@@ -555,9 +555,7 @@ export default function SchedulesPage() {
             ) : (
               <>
                 {unreadNotifications > 0 && (
-                  <Button variant="ghost" size="sm" className="text-xs mb-2" onClick={() => {
-                    const { markAllNotificationsRead } = useStore.call ? {} as any : { markAllNotificationsRead: () => {} };
-                  }}>
+                  <Button variant="ghost" size="sm" className="text-xs mb-2" onClick={() => markAllNotificationsRead()}>
                     Marcar todas como lidas
                   </Button>
                 )}
