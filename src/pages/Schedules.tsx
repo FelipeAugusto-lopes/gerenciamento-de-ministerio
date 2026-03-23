@@ -247,6 +247,3 @@ export default function SchedulesPage() {
     </div>
   );
 }
-
-// Need to import Calendar icon
-import { Calendar } from "lucide-react";
