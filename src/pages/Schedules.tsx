@@ -2,10 +2,11 @@ import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, Trash2, Filter, X, Calendar } from "lucide-react";
+import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 const statusColors: Record<ScheduleStatus, string> = {
@@ -14,6 +15,12 @@ const statusColors: Record<ScheduleStatus, string> = {
   Concluído: "bg-muted text-muted-foreground border-border",
 };
 
+interface ConflictInfo {
+  memberId: string;
+  existingSchedules: { ministryName: string; shift: string }[];
+  sameShift: boolean;
+}
+
 export default function SchedulesPage() {
   const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule } = useStore();
   const [showAdd, setShowAdd] = useState(false);
@@ -21,6 +28,8 @@ export default function SchedulesPage() {
   const [filterMinistry, setFilterMinistry] = useState("all");
   const [filterShift, setFilterShift] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [blockSameDay, setBlockSameDay] = useState(true);
+  const [blockSameShift, setBlockSameShift] = useState(false);
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
@@ -29,6 +38,52 @@ export default function SchedulesPage() {
     memberId: "",
     status: "Pendente" as ScheduleStatus,
   });
+
+  // Conflict detection for current form
+  const getConflictsForMember = (memberId: string, date: string, shift: Shift): ConflictInfo | null => {
+    if (!memberId || !date) return null;
+    const existing = schedules.filter(s => s.memberId === memberId && s.date === date);
+    if (existing.length === 0) return null;
+    const mapped = existing.map(s => {
+      const min = ministries.find(m => m.id === s.ministryId);
+      return { ministryName: min?.name || "?", shift: s.shift };
+    });
+    return { memberId, existingSchedules: mapped, sameShift: existing.some(s => s.shift === shift) };
+  };
+
+  const currentConflict = useMemo(
+    () => getConflictsForMember(newForm.memberId, newForm.date, newForm.shift),
+    [newForm.memberId, newForm.date, newForm.shift, schedules]
+  );
+
+  const isBlocked = currentConflict && (blockSameDay || (blockSameShift && currentConflict.sameShift));
+
+  // Conflicts per member for the dropdown annotations
+  const memberConflictMap = useMemo(() => {
+    if (!newForm.date) return new Map<string, ConflictInfo>();
+    const map = new Map<string, ConflictInfo>();
+    members.forEach(m => {
+      const c = getConflictsForMember(m.id, newForm.date, newForm.shift);
+      if (c) map.set(m.id, c);
+    });
+    return map;
+  }, [newForm.date, newForm.shift, schedules, members]);
+
+  // Detect conflicts in existing schedule list (highlight rows)
+  const scheduleConflicts = useMemo(() => {
+    const conflictIds = new Set<string>();
+    const byDayMember = new Map<string, string[]>();
+    schedules.forEach(s => {
+      const key = `${s.date}__${s.memberId}`;
+      const list = byDayMember.get(key) || [];
+      list.push(s.id);
+      byDayMember.set(key, list);
+    });
+    byDayMember.forEach(ids => {
+      if (ids.length > 1) ids.forEach(id => conflictIds.add(id));
+    });
+    return conflictIds;
+  }, [schedules]);
 
   const filtered = useMemo(() => {
     return schedules
@@ -40,6 +95,7 @@ export default function SchedulesPage() {
 
   const handleAdd = () => {
     if (!newForm.ministryId || !newForm.memberId || !newForm.date) return;
+    if (isBlocked) return;
     addSchedule(newForm);
     setShowAdd(false);
     setNewForm({ ministryId: "", date: new Date().toISOString().split("T")[0], shift: "Manhã", memberId: "", status: "Pendente" });
@@ -47,10 +103,20 @@ export default function SchedulesPage() {
 
   const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0);
 
-  // Members filtered by selected ministry
   const availableMembers = newForm.ministryId
     ? members.filter(m => m.ministryIds.includes(newForm.ministryId))
     : members;
+
+  const getConflictTooltip = (scheduleId: string) => {
+    const s = schedules.find(x => x.id === scheduleId);
+    if (!s) return null;
+    const others = schedules.filter(x => x.id !== scheduleId && x.date === s.date && x.memberId === s.memberId);
+    if (others.length === 0) return null;
+    return others.map(o => {
+      const min = ministries.find(m => m.id === o.ministryId);
+      return `${min?.name || "?"} (${o.shift})`;
+    }).join(", ");
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -74,7 +140,7 @@ export default function SchedulesPage() {
 
       {/* Filters */}
       {showFilters && (
-        <div className="rounded-lg border bg-card p-4 animate-fade-in">
+        <div className="rounded-lg border bg-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Data</label>
@@ -103,16 +169,42 @@ export default function SchedulesPage() {
             </div>
           </div>
           {activeFilters > 0 && (
-            <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); }}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); }}>
               <X className="h-3 w-3 mr-1" /> Limpar filtros
             </Button>
           )}
         </div>
       )}
 
+      {/* Conflict rules config */}
+      {showAdd && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 animate-fade-in space-y-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Shield className="h-4 w-4" />
+            Regras de Conflito
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center justify-between rounded-lg border bg-card p-3 cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-foreground">Bloquear mesmo dia</p>
+                <p className="text-xs text-muted-foreground">Impede escalar a mesma pessoa duas vezes no mesmo dia</p>
+              </div>
+              <Switch checked={blockSameDay} onCheckedChange={setBlockSameDay} />
+            </label>
+            <label className="flex items-center justify-between rounded-lg border bg-card p-3 cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-foreground">Bloquear mesmo turno</p>
+                <p className="text-xs text-muted-foreground">Permite no mesmo dia, mas bloqueia no mesmo turno</p>
+              </div>
+              <Switch checked={blockSameShift} onCheckedChange={v => { setBlockSameShift(v); if (v) setBlockSameDay(false); }} />
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-lg border bg-card p-4 space-y-3 animate-fade-in">
+        <div className={cn("rounded-lg border bg-card p-4 space-y-3 animate-fade-in", isBlocked && "border-destructive/50")} >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Ministério</label>
@@ -126,9 +218,25 @@ export default function SchedulesPage() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Pessoa</label>
               <Select value={newForm.memberId} onValueChange={v => setNewForm(f => ({ ...f, memberId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className={cn(currentConflict && "border-destructive")}><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {availableMembers.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  {availableMembers.map(m => {
+                    const conflict = memberConflictMap.get(m.id);
+                    const blocked = conflict && (blockSameDay || (blockSameShift && conflict.sameShift));
+                    return (
+                      <SelectItem key={m.id} value={m.id} disabled={!!blocked}>
+                        <span className="flex items-center gap-2">
+                          {m.name}
+                          {conflict && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-destructive">
+                              <AlertTriangle className="h-3 w-3" />
+                              {conflict.existingSchedules.map(e => e.ministryName).join(", ")}
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -147,8 +255,43 @@ export default function SchedulesPage() {
               </Select>
             </div>
           </div>
+
+          {/* Conflict alert */}
+          {currentConflict && (
+            <div className={cn(
+              "rounded-lg border p-3 animate-fade-in flex items-start gap-3",
+              isBlocked ? "border-destructive/50 bg-destructive/5" : "border-accent/50 bg-accent/5"
+            )}>
+              <AlertTriangle className={cn("h-5 w-5 mt-0.5 shrink-0", isBlocked ? "text-destructive" : "text-accent")} />
+              <div className="space-y-1">
+                <p className={cn("text-sm font-medium", isBlocked ? "text-destructive" : "text-accent-foreground")}>
+                  {isBlocked ? "Conflito bloqueado" : "Aviso de conflito"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Esta pessoa já está escalada neste dia:
+                </p>
+                <ul className="space-y-1">
+                  {currentConflict.existingSchedules.map((e, i) => (
+                    <li key={i} className="text-xs flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                      <span className="font-medium text-foreground">{e.ministryName}</span>
+                      <span className="text-muted-foreground">— {e.shift}</span>
+                    </li>
+                  ))}
+                </ul>
+                {isBlocked && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Desative a regra "{blockSameDay ? "Bloquear mesmo dia" : "Bloquear mesmo turno"}" para permitir.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd}>Adicionar</Button>
+            <Button size="sm" onClick={handleAdd} disabled={!!isBlocked}>
+              {isBlocked ? "Bloqueado" : "Adicionar"}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
           </div>
         </div>
@@ -167,13 +310,21 @@ export default function SchedulesPage() {
             {filtered.map(s => {
               const ministry = ministries.find(m => m.id === s.ministryId);
               const member = members.find(m => m.id === s.memberId);
+              const hasConflict = scheduleConflicts.has(s.id);
+              const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
               return (
-                <div key={s.id} className="rounded-lg border bg-card p-4 space-y-2" style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
+                <div key={s.id} className={cn("rounded-lg border bg-card p-4 space-y-2", hasConflict && "border-destructive/50 ring-1 ring-destructive/20")} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
                   <div className="flex items-center justify-between">
                     <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
                     <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
                   <p className="font-medium text-foreground">{member?.name || "?"}</p>
+                  {hasConflict && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>Também em: {conflictDetail}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{formatDate(s.date)}</span>
                     <span>{getDayOfWeek(s.date)}</span>
@@ -212,15 +363,27 @@ export default function SchedulesPage() {
                 {filtered.map(s => {
                   const ministry = ministries.find(m => m.id === s.ministryId);
                   const member = members.find(m => m.id === s.memberId);
+                  const hasConflict = scheduleConflicts.has(s.id);
+                  const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
                   return (
-                    <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                    <tr key={s.id} className={cn("border-b last:border-0 transition-colors", hasConflict ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/30")}>
                       <td className="px-4 py-3">
                         <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
                       </td>
                       <td className="px-4 py-3 text-foreground">{formatDate(s.date)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{getDayOfWeek(s.date)}</td>
                       <td className="px-4 py-3 text-foreground">{s.shift}</td>
-                      <td className="px-4 py-3 font-medium text-foreground">{member?.name || "?"}</td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="font-medium text-foreground">{member?.name || "?"}</span>
+                          {hasConflict && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-destructive mt-0.5">
+                              <AlertTriangle className="h-3 w-3" />
+                              <span>Também em: {conflictDetail}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <Select value={s.status} onValueChange={v => updateSchedule({ ...s, status: v as ScheduleStatus })}>
                           <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
