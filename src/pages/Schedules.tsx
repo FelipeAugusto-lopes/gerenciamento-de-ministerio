@@ -1,12 +1,14 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
+import { useAuth } from "@/store/AuthContext";
 import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, ShieldOff } from "lucide-react";
+import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, Wand2, History, Search, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const statusColors: Record<ScheduleStatus, string> = {
@@ -23,6 +25,8 @@ interface ConflictInfo {
 
 export default function SchedulesPage() {
   const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule } = useStore();
+  const { isAdmin, canEditMinistry, currentUser } = useAuth();
+
   const [showAdd, setShowAdd] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [filterMinistry, setFilterMinistry] = useState("all");
@@ -30,6 +34,19 @@ export default function SchedulesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [blockSameDay, setBlockSameDay] = useState(true);
   const [blockSameShift, setBlockSameShift] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [genDate, setGenDate] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? 0 : 7 - day; // next sunday
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().split("T")[0];
+  });
+  const [genMinistry, setGenMinistry] = useState("all");
+  const [genShift, setGenShift] = useState<Shift>("Manhã");
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
@@ -39,7 +56,13 @@ export default function SchedulesPage() {
     status: "Pendente" as ScheduleStatus,
   });
 
-  // Conflict detection for current form
+  // Show saved feedback
+  const showSaved = () => {
+    setSavedFeedback(true);
+    setTimeout(() => setSavedFeedback(false), 2000);
+  };
+
+  // Conflict detection
   const getConflictsForMember = (memberId: string, date: string, shift: Shift): ConflictInfo | null => {
     if (!memberId || !date) return null;
     const existing = schedules.filter(s => s.memberId === memberId && s.date === date);
@@ -58,7 +81,6 @@ export default function SchedulesPage() {
 
   const isBlocked = currentConflict && (blockSameDay || (blockSameShift && currentConflict.sameShift));
 
-  // Conflicts per member for the dropdown annotations
   const memberConflictMap = useMemo(() => {
     if (!newForm.date) return new Map<string, ConflictInfo>();
     const map = new Map<string, ConflictInfo>();
@@ -69,7 +91,6 @@ export default function SchedulesPage() {
     return map;
   }, [newForm.date, newForm.shift, schedules, members]);
 
-  // Detect conflicts in existing schedule list (highlight rows)
   const scheduleConflicts = useMemo(() => {
     const conflictIds = new Set<string>();
     const byDayMember = new Map<string, string[]>();
@@ -99,13 +120,88 @@ export default function SchedulesPage() {
     addSchedule(newForm);
     setShowAdd(false);
     setNewForm({ ministryId: "", date: new Date().toISOString().split("T")[0], shift: "Manhã", memberId: "", status: "Pendente" });
+    showSaved();
   };
+
+  // Smart suggestion: members sorted by least recent service for a ministry
+  const getSuggestedMember = (ministryId: string, date: string, shift: Shift): string | null => {
+    const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId));
+    if (ministryMembers.length === 0) return null;
+
+    const lastServed = new Map<string, string>();
+    schedules
+      .filter(s => s.ministryId === ministryId)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .forEach(s => {
+        if (!lastServed.has(s.memberId)) lastServed.set(s.memberId, s.date);
+      });
+
+    // Sort: never served first, then least recently served
+    const sorted = [...ministryMembers].sort((a, b) => {
+      const aDate = lastServed.get(a.id) || "0000-00-00";
+      const bDate = lastServed.get(b.id) || "0000-00-00";
+      return aDate.localeCompare(bDate);
+    });
+
+    // Find first member without conflict on that date
+    for (const m of sorted) {
+      const conflict = getConflictsForMember(m.id, date, shift);
+      const blocked = conflict && (blockSameDay || (blockSameShift && conflict.sameShift));
+      if (!blocked) return m.id;
+    }
+    return sorted[0]?.id || null;
+  };
+
+  // Generate week schedule
+  const handleGenerate = () => {
+    const targetMinistries = genMinistry === "all" ? ministries : ministries.filter(m => m.id === genMinistry);
+    let count = 0;
+
+    for (const ministry of targetMinistries) {
+      // Check permission
+      if (!canEditMinistry(ministry.id)) continue;
+
+      // Check if already exists
+      const exists = schedules.some(s => s.ministryId === ministry.id && s.date === genDate && s.shift === genShift);
+      if (exists) continue;
+
+      const suggestedMember = getSuggestedMember(ministry.id, genDate, genShift);
+      if (!suggestedMember) continue;
+
+      addSchedule({
+        ministryId: ministry.id,
+        date: genDate,
+        shift: genShift,
+        memberId: suggestedMember,
+        status: "Pendente",
+      });
+      count++;
+    }
+
+    setShowGenerate(false);
+    if (count > 0) showSaved();
+  };
+
+  // Member history
+  const memberHistory = useMemo(() => {
+    if (!historyMemberId) return [];
+    return schedules
+      .filter(s => s.memberId === historyMemberId)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [historyMemberId, schedules]);
 
   const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0);
 
-  const availableMembers = newForm.ministryId
-    ? members.filter(m => m.ministryIds.includes(newForm.ministryId))
-    : members;
+  const availableMembers = useMemo(() => {
+    let list = newForm.ministryId
+      ? members.filter(m => m.ministryIds.includes(newForm.ministryId))
+      : members;
+    if (memberSearch) {
+      const search = memberSearch.toLowerCase();
+      list = list.filter(m => m.name.toLowerCase().includes(search));
+    }
+    return list;
+  }, [newForm.ministryId, members, memberSearch]);
 
   const getConflictTooltip = (scheduleId: string) => {
     const s = schedules.find(x => x.id === scheduleId);
@@ -118,22 +214,35 @@ export default function SchedulesPage() {
     }).join(", ");
   };
 
+  // Visible ministries for leaders
+  const visibleMinistries = isAdmin ? ministries : ministries;
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      {/* Saved feedback */}
+      {savedFeedback && (
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+          <CheckCircle2 className="h-5 w-5" /> Salvo com sucesso!
+        </div>
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Escalas</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 relative">
-            <Filter className="h-4 w-4" /> Filtros
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-12 px-5 text-base relative">
+            <Filter className="h-5 w-5" /> Filtros
             {activeFilters > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">{activeFilters}</span>
             )}
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Nova
+          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-12 px-5 text-base">
+            <Wand2 className="h-5 w-5" /> Gerar Escala
+          </Button>
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base">
+            <Plus className="h-5 w-5" /> Nova
           </Button>
         </div>
       </div>
@@ -143,13 +252,13 @@ export default function SchedulesPage() {
         <div className="rounded-lg border bg-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Data</label>
-              <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
+              <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="h-12 text-base" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Ministério</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
               <Select value={filterMinistry} onValueChange={setFilterMinistry}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -157,9 +266,9 @@ export default function SchedulesPage() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Turno</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
               <Select value={filterShift} onValueChange={setFilterShift}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="Manhã">Manhã</SelectItem>
@@ -169,14 +278,14 @@ export default function SchedulesPage() {
             </div>
           </div>
           {activeFilters > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); }}>
-              <X className="h-3 w-3 mr-1" /> Limpar filtros
+            <Button variant="ghost" size="sm" className="text-sm" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); }}>
+              <X className="h-4 w-4 mr-1" /> Limpar filtros
             </Button>
           )}
         </div>
       )}
 
-      {/* Conflict rules config */}
+      {/* Conflict rules */}
       {showAdd && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 animate-fade-in space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -204,21 +313,35 @@ export default function SchedulesPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div className={cn("rounded-lg border bg-card p-4 space-y-3 animate-fade-in", isBlocked && "border-destructive/50")} >
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className={cn("rounded-lg border bg-card p-5 space-y-4 animate-fade-in", isBlocked && "border-destructive/50")}>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Ministério</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
               <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, memberId: "" }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  {visibleMinistries.filter(m => canEditMinistry(m.id)).map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Pessoa</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Buscar pessoa</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite o nome..."
+                  value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)}
+                  className="h-12 text-base pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Pessoa</label>
               <Select value={newForm.memberId} onValueChange={v => setNewForm(f => ({ ...f, memberId: v }))}>
-                <SelectTrigger className={cn(currentConflict && "border-destructive")}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className={cn("h-12 text-base", currentConflict && "border-destructive")}><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {availableMembers.map(m => {
                     const conflict = memberConflictMap.get(m.id);
@@ -241,13 +364,13 @@ export default function SchedulesPage() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Data</label>
-              <Input type="date" value={newForm.date} onChange={e => setNewForm(f => ({ ...f, date: e.target.value }))} />
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
+              <Input type="date" value={newForm.date} onChange={e => setNewForm(f => ({ ...f, date: e.target.value }))} className="h-12 text-base" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Turno</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
               <Select value={newForm.shift} onValueChange={v => setNewForm(f => ({ ...f, shift: v as Shift }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Manhã">Manhã</SelectItem>
                   <SelectItem value="Noite">Noite</SelectItem>
@@ -267,9 +390,7 @@ export default function SchedulesPage() {
                 <p className={cn("text-sm font-medium", isBlocked ? "text-destructive" : "text-accent-foreground")}>
                   {isBlocked ? "Conflito bloqueado" : "Aviso de conflito"}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Esta pessoa já está escalada neste dia:
-                </p>
+                <p className="text-xs text-muted-foreground">Esta pessoa já está escalada neste dia:</p>
                 <ul className="space-y-1">
                   {currentConflict.existingSchedules.map((e, i) => (
                     <li key={i} className="text-xs flex items-center gap-2">
@@ -279,25 +400,96 @@ export default function SchedulesPage() {
                     </li>
                   ))}
                 </ul>
-                {isBlocked && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Desative a regra "{blockSameDay ? "Bloquear mesmo dia" : "Bloquear mesmo turno"}" para permitir.
-                  </p>
-                )}
               </div>
             </div>
           )}
 
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!!isBlocked}>
+            <Button className="h-12 px-6 text-base" onClick={handleAdd} disabled={!!isBlocked}>
               {isBlocked ? "Bloqueado" : "Adicionar"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
+            <Button className="h-12 px-6 text-base" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
           </div>
         </div>
       )}
 
-      {/* Schedule cards (mobile) / table (desktop) */}
+      {/* Generate schedule dialog */}
+      <Dialog open={showGenerate} onOpenChange={setShowGenerate}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display">
+              <Wand2 className="h-5 w-5 text-primary" /> Gerar Escala Automática
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Sugere automaticamente as pessoas que serviram menos recentemente em cada ministério.
+            </p>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
+              <Input type="date" value={genDate} onChange={e => setGenDate(e.target.value)} className="h-12 text-base" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
+              <Select value={genShift} onValueChange={v => setGenShift(v as Shift)}>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Manhã">Manhã</SelectItem>
+                  <SelectItem value="Noite">Noite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
+              <Select value={genMinistry} onValueChange={setGenMinistry}>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os ministérios</SelectItem>
+                  {ministries.filter(m => canEditMinistry(m.id)).map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full h-12 text-base gap-2" onClick={handleGenerate}>
+              <Wand2 className="h-5 w-5" /> Gerar Escala
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Member history dialog */}
+      <Dialog open={!!historyMemberId} onOpenChange={() => setHistoryMemberId(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display">
+              <History className="h-5 w-5 text-primary" />
+              Histórico — {members.find(m => m.id === historyMemberId)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {memberHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma escala registrada.</p>
+          ) : (
+            <div className="space-y-2 pt-2">
+              {memberHistory.map(s => {
+                const ministry = ministries.find(m => m.id === s.ministryId);
+                return (
+                  <div key={s.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+                    <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
+                    <div className="flex-1 text-sm">
+                      <span className="text-foreground">{formatDate(s.date)}</span>
+                      <span className="text-muted-foreground ml-2">{getDayOfWeek(s.date)} • {s.shift}</span>
+                    </div>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{s.status}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule list */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Calendar className="h-12 w-12 mb-3 opacity-40" />
@@ -312,13 +504,19 @@ export default function SchedulesPage() {
               const member = members.find(m => m.id === s.memberId);
               const hasConflict = scheduleConflicts.has(s.id);
               const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
+              const editable = canEditMinistry(s.ministryId);
               return (
                 <div key={s.id} className={cn("rounded-lg border bg-card p-4 space-y-2", hasConflict && "border-destructive/50 ring-1 ring-destructive/20")} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
                   <div className="flex items-center justify-between">
                     <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                    <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    {editable && (
+                      <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </div>
-                  <p className="font-medium text-foreground">{member?.name || "?"}</p>
+                  <button onClick={() => setHistoryMemberId(s.memberId)} className="font-medium text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5">
+                    {member?.name || "?"}
+                    <History className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
                   {hasConflict && (
                     <div className="flex items-center gap-1.5 text-[11px] text-destructive">
                       <AlertTriangle className="h-3 w-3" />
@@ -330,16 +528,20 @@ export default function SchedulesPage() {
                     <span>{getDayOfWeek(s.date)}</span>
                     <span>{s.shift}</span>
                   </div>
-                  <Select value={s.status} onValueChange={v => updateSchedule({ ...s, status: v as ScheduleStatus })}>
-                    <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pendente">Pendente</SelectItem>
-                      <SelectItem value="Confirmado">Confirmado</SelectItem>
-                      <SelectItem value="Concluído">Concluído</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {editable ? (
+                    <Select value={s.status} onValueChange={v => { updateSchedule({ ...s, status: v as ScheduleStatus }); showSaved(); }}>
+                      <SelectTrigger className={cn("w-fit h-8 text-xs border", statusColors[s.status])}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pendente">Pendente</SelectItem>
+                        <SelectItem value="Confirmado">Confirmado</SelectItem>
+                        <SelectItem value="Concluído">Concluído</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border w-fit", statusColors[s.status])}>{s.status}</span>
+                  )}
                 </div>
               );
             })}
@@ -365,6 +567,7 @@ export default function SchedulesPage() {
                   const member = members.find(m => m.id === s.memberId);
                   const hasConflict = scheduleConflicts.has(s.id);
                   const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
+                  const editable = canEditMinistry(s.ministryId);
                   return (
                     <tr key={s.id} className={cn("border-b last:border-0 transition-colors", hasConflict ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/30")}>
                       <td className="px-4 py-3">
@@ -375,7 +578,10 @@ export default function SchedulesPage() {
                       <td className="px-4 py-3 text-foreground">{s.shift}</td>
                       <td className="px-4 py-3">
                         <div>
-                          <span className="font-medium text-foreground">{member?.name || "?"}</span>
+                          <button onClick={() => setHistoryMemberId(s.memberId)} className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1.5">
+                            {member?.name || "?"}
+                            <History className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
                           {hasConflict && (
                             <div className="flex items-center gap-1.5 text-[11px] text-destructive mt-0.5">
                               <AlertTriangle className="h-3 w-3" />
@@ -385,19 +591,25 @@ export default function SchedulesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <Select value={s.status} onValueChange={v => updateSchedule({ ...s, status: v as ScheduleStatus })}>
-                          <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
-                            <SelectItem value="Confirmado">Confirmado</SelectItem>
-                            <SelectItem value="Concluído">Concluído</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {editable ? (
+                          <Select value={s.status} onValueChange={v => { updateSchedule({ ...s, status: v as ScheduleStatus }); showSaved(); }}>
+                            <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pendente">Pendente</SelectItem>
+                              <SelectItem value="Confirmado">Confirmado</SelectItem>
+                              <SelectItem value="Concluído">Concluído</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{s.status}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                        {editable && (
+                          <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                        )}
                       </td>
                     </tr>
                   );
