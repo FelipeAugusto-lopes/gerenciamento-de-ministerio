@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
-import { useAuth } from "@/store/AuthContext";
+import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
 import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, Wand2, History, Search, CheckCircle2, Bell, Clock, BarChart3, XCircle } from "lucide-react";
@@ -33,7 +33,7 @@ interface ConflictInfo {
 
 export default function SchedulesPage() {
   const { schedules, ministries, members, addSchedule, updateSchedule, deleteSchedule, addNotification, notifications, markAllNotificationsRead } = useStore();
-  const { isAdmin, canEditMinistry } = useAuth();
+  const { addEntry } = useAudit();
 
   const [showAdd, setShowAdd] = useState(false);
   const [filterDate, setFilterDate] = useState("");
@@ -70,7 +70,6 @@ export default function SchedulesPage() {
     setTimeout(() => setSavedFeedback(""), 2500);
   };
 
-  // Notification helper
   const sendNotification = (memberId: string, scheduleId: string, ministryName: string, date: string, shift: string) => {
     const member = members.find(m => m.id === memberId);
     addNotification({
@@ -82,7 +81,6 @@ export default function SchedulesPage() {
     });
   };
 
-  // Conflict detection
   const getConflictsForMember = (memberId: string, date: string, shift: Shift): ConflictInfo | null => {
     if (!memberId || !date) return null;
     const existing = schedules.filter(s => s.memberId === memberId && s.date === date);
@@ -134,7 +132,6 @@ export default function SchedulesPage() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [schedules, filterDate, filterMinistry, filterShift]);
 
-  // Status summary
   const statusSummary = useMemo(() => {
     const counts = { Pendente: 0, Confirmado: 0, Recusado: 0, Concluído: 0 };
     filtered.forEach(s => { counts[s.status]++; });
@@ -146,28 +143,24 @@ export default function SchedulesPage() {
     if (isBlocked) return;
     addSchedule(newForm);
     const ministry = ministries.find(m => m.id === newForm.ministryId);
+    const member = members.find(m => m.id === newForm.memberId);
     sendNotification(newForm.memberId, "", ministry?.name || "?", newForm.date, newForm.shift);
+    addEntry("Adicionou escala", `${member?.name} em ${ministry?.name} — ${formatDate(newForm.date)} (${newForm.shift})`);
     setShowAdd(false);
     setNewForm({ ministryId: "", date: new Date().toISOString().split("T")[0], shift: "Manhã", memberId: "", status: "Pendente" });
     showSaved();
   };
 
-  // Smart suggestion: avoid consecutive weeks + least recent
   const getSuggestedMember = (ministryId: string, date: string, shift: Shift): string | null => {
     const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId));
     if (ministryMembers.length === 0) return null;
-
-    // Get previous week date
     const targetDate = new Date(date + "T12:00:00");
     const prevWeek = new Date(targetDate);
     prevWeek.setDate(prevWeek.getDate() - 7);
     const prevWeekStr = prevWeek.toISOString().split("T")[0];
-
-    // Members who served last week in this ministry
     const servedLastWeek = new Set(
       schedules.filter(s => s.ministryId === ministryId && s.date === prevWeekStr).map(s => s.memberId)
     );
-
     const lastServed = new Map<string, string>();
     schedules
       .filter(s => s.ministryId === ministryId)
@@ -175,8 +168,6 @@ export default function SchedulesPage() {
       .forEach(s => {
         if (!lastServed.has(s.memberId)) lastServed.set(s.memberId, s.date);
       });
-
-    // Sort: never served > not last week + least recent > last week + least recent
     const sorted = [...ministryMembers].sort((a, b) => {
       const aLastWeek = servedLastWeek.has(a.id) ? 1 : 0;
       const bLastWeek = servedLastWeek.has(b.id) ? 1 : 0;
@@ -185,7 +176,6 @@ export default function SchedulesPage() {
       const bDate = lastServed.get(b.id) || "0000-00-00";
       return aDate.localeCompare(bDate);
     });
-
     for (const m of sorted) {
       const conflict = getConflictsForMember(m.id, date, shift);
       const blocked = conflict && (blockSameDay || (blockSameShift && conflict.sameShift));
@@ -194,35 +184,43 @@ export default function SchedulesPage() {
     return sorted[0]?.id || null;
   };
 
-  // Generate week schedule
   const handleGenerate = () => {
     const targetMinistries = genMinistry === "all" ? ministries : ministries.filter(m => m.id === genMinistry);
     let count = 0;
-
     for (const ministry of targetMinistries) {
-      if (!canEditMinistry(ministry.id)) continue;
       const exists = schedules.some(s => s.ministryId === ministry.id && s.date === genDate && s.shift === genShift);
       if (exists) continue;
-
       const suggestedMember = getSuggestedMember(ministry.id, genDate, genShift);
       if (!suggestedMember) continue;
-
-      addSchedule({
-        ministryId: ministry.id,
-        date: genDate,
-        shift: genShift,
-        memberId: suggestedMember,
-        status: "Pendente",
-      });
+      addSchedule({ ministryId: ministry.id, date: genDate, shift: genShift, memberId: suggestedMember, status: "Pendente" });
       sendNotification(suggestedMember, "", ministry.name, genDate, genShift);
       count++;
     }
-
     setShowGenerate(false);
-    if (count > 0) showSaved(`${count} escala${count > 1 ? "s" : ""} gerada${count > 1 ? "s" : ""} com sucesso!`);
+    if (count > 0) {
+      addEntry("Gerou escalas automáticas", `${count} escala(s) para ${formatDate(genDate)} (${genShift})`);
+      showSaved(`${count} escala${count > 1 ? "s" : ""} gerada${count > 1 ? "s" : ""} com sucesso!`);
+    }
   };
 
-  // Member history with stats
+  const handleDelete = (id: string) => {
+    const s = schedules.find(x => x.id === id);
+    if (s) {
+      const ministry = ministries.find(m => m.id === s.ministryId);
+      const member = members.find(m => m.id === s.memberId);
+      addEntry("Removeu escala", `${member?.name} de ${ministry?.name} — ${formatDate(s.date)}`);
+    }
+    deleteSchedule(id);
+  };
+
+  const handleStatusChange = (s: typeof schedules[0], newStatus: ScheduleStatus) => {
+    updateSchedule({ ...s, status: newStatus });
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const member = members.find(m => m.id === s.memberId);
+    addEntry("Alterou status", `${member?.name} (${ministry?.name}) → ${newStatus}`);
+    showSaved();
+  };
+
   const memberHistory = useMemo(() => {
     if (!historyMemberId) return [];
     return schedules.filter(s => s.memberId === historyMemberId).sort((a, b) => b.date.localeCompare(a.date));
@@ -233,16 +231,11 @@ export default function SchedulesPage() {
     const history = schedules.filter(s => s.memberId === historyMemberId);
     if (history.length === 0) return { total: 0, lastServed: null as string | null, frequency: "Nunca escalado" };
     const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
-    const lastDate = sorted[0].date;
-
-    // Frequency: count per last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recent = history.filter(s => new Date(s.date) >= thirtyDaysAgo).length;
-
     return {
       total: history.length,
-      lastServed: lastDate,
+      lastServed: sorted[0].date,
       frequency: recent === 0 ? "Nenhuma nos últimos 30 dias" : `${recent}x nos últimos 30 dias`,
     };
   }, [historyMemberId, schedules]);
@@ -250,9 +243,7 @@ export default function SchedulesPage() {
   const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0);
 
   const availableMembers = useMemo(() => {
-    let list = newForm.ministryId
-      ? members.filter(m => m.ministryIds.includes(newForm.ministryId))
-      : members;
+    let list = newForm.ministryId ? members.filter(m => m.ministryIds.includes(newForm.ministryId)) : members;
     if (memberSearch) {
       const search = memberSearch.toLowerCase();
       list = list.filter(m => m.name.toLowerCase().includes(search));
@@ -275,7 +266,6 @@ export default function SchedulesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Saved feedback */}
       {savedFeedback && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
@@ -309,7 +299,6 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* Status summary indicators */}
       {filtered.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-lg border bg-accent/10 p-3 text-center">
@@ -331,7 +320,6 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Filters */}
       {showFilters && (
         <div className="rounded-lg border bg-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -369,7 +357,6 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Conflict rules */}
       {showAdd && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 animate-fade-in space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -394,7 +381,6 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Add form */}
       {showAdd && (
         <div className={cn("rounded-lg border bg-card p-5 space-y-4 animate-fade-in", isBlocked && "border-destructive/50")}>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -403,9 +389,7 @@ export default function SchedulesPage() {
               <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, memberId: "" }))}>
                 <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {ministries.filter(m => canEditMinistry(m.id)).map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
+                  {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -490,7 +474,6 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* Generate schedule dialog */}
       <Dialog open={showGenerate} onOpenChange={setShowGenerate}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -528,9 +511,7 @@ export default function SchedulesPage() {
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os ministérios</SelectItem>
-                  {ministries.filter(m => canEditMinistry(m.id)).map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
+                  {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -541,7 +522,6 @@ export default function SchedulesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Notifications dialog */}
       <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
           <DialogHeader>
@@ -559,27 +539,23 @@ export default function SchedulesPage() {
                     Marcar todas como lidas
                   </Button>
                 )}
-                {notifications.slice(0, 50).map(n => {
-                  const member = members.find(m => m.id === n.memberId);
-                  return (
-                    <div key={n.id} className={cn(
-                      "rounded-lg border p-3 text-sm transition-colors",
-                      n.read ? "bg-card" : "bg-primary/5 border-primary/20"
-                    )}>
-                      <p className="text-foreground">{n.message}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        {new Date(n.createdAt).toLocaleDateString("pt-BR")} às {new Date(n.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  );
-                })}
+                {notifications.slice(0, 50).map(n => (
+                  <div key={n.id} className={cn(
+                    "rounded-lg border p-3 text-sm transition-colors",
+                    n.read ? "bg-card" : "bg-primary/5 border-primary/20"
+                  )}>
+                    <p className="text-foreground">{n.message}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {new Date(n.createdAt).toLocaleDateString("pt-BR")} às {new Date(n.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                ))}
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Member history dialog */}
       <Dialog open={!!historyMemberId} onOpenChange={() => setHistoryMemberId(null)}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
           <DialogHeader>
@@ -588,8 +564,6 @@ export default function SchedulesPage() {
               Histórico — {members.find(m => m.id === historyMemberId)?.name}
             </DialogTitle>
           </DialogHeader>
-
-          {/* Stats */}
           {memberStats && (
             <div className="grid grid-cols-3 gap-3 pt-2">
               <div className="rounded-lg border bg-muted/50 p-3 text-center">
@@ -606,7 +580,6 @@ export default function SchedulesPage() {
               </div>
             </div>
           )}
-
           {memberHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma escala registrada.</p>
           ) : (
@@ -631,7 +604,6 @@ export default function SchedulesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Schedule list */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Calendar className="h-12 w-12 mb-3 opacity-40" />
@@ -639,14 +611,12 @@ export default function SchedulesPage() {
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
           <div className="grid gap-3 md:hidden">
             {filtered.map(s => {
               const ministry = ministries.find(m => m.id === s.ministryId);
               const member = members.find(m => m.id === s.memberId);
               const hasConflict = scheduleConflicts.has(s.id);
               const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
-              const editable = canEditMinistry(s.ministryId);
               return (
                 <div key={s.id} className={cn(
                   "rounded-lg border bg-card p-4 space-y-2",
@@ -657,9 +627,7 @@ export default function SchedulesPage() {
                     <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
                     <div className="flex items-center gap-1">
                       <span className="text-base">{statusIcons[s.status]}</span>
-                      {editable && (
-                        <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                      )}
+                      <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                   <button onClick={() => setHistoryMemberId(s.memberId)} className="font-medium text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5">
@@ -677,27 +645,22 @@ export default function SchedulesPage() {
                     <span>{getDayOfWeek(s.date)}</span>
                     <span>{s.shift}</span>
                   </div>
-                  {editable ? (
-                    <Select value={s.status} onValueChange={v => { updateSchedule({ ...s, status: v as ScheduleStatus }); showSaved(); }}>
-                      <SelectTrigger className={cn("w-fit h-8 text-xs border", statusColors[s.status])}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                        <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                        <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                        <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border w-fit", statusColors[s.status])}>{statusIcons[s.status]} {s.status}</span>
-                  )}
+                  <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                    <SelectTrigger className={cn("w-fit h-8 text-xs border", statusColors[s.status])}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                      <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                      <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                      <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               );
             })}
           </div>
 
-          {/* Desktop table */}
           <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -717,7 +680,6 @@ export default function SchedulesPage() {
                   const member = members.find(m => m.id === s.memberId);
                   const hasConflict = scheduleConflicts.has(s.id);
                   const conflictDetail = hasConflict ? getConflictTooltip(s.id) : null;
-                  const editable = canEditMinistry(s.ministryId);
                   return (
                     <tr key={s.id} className={cn(
                       "border-b last:border-0 transition-colors",
@@ -745,26 +707,20 @@ export default function SchedulesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {editable ? (
-                          <Select value={s.status} onValueChange={v => { updateSchedule({ ...s, status: v as ScheduleStatus }); showSaved(); }}>
-                            <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                              <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                              <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                              <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>{statusIcons[s.status]} {s.status}</span>
-                        )}
+                        <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                          <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                            <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                            <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                            <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="px-4 py-3">
-                        {editable && (
-                          <button onClick={() => deleteSchedule(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                        )}
+                        <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                       </td>
                     </tr>
                   );
