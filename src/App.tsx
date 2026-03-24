@@ -4,32 +4,16 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreProvider } from "@/store/StoreContext";
-import { AuthProvider, useAuth } from "@/store/AuthContext";
+import { AuditProvider } from "@/store/AuditContext";
 import AppLayout from "@/components/AppLayout";
+import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
-import Users from "@/pages/Users";
-import Login from "@/pages/Login";
+import AuditLog from "@/pages/AuditLog";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
-
-function AuthGate() {
-  const { currentUser } = useAuth();
-  if (!currentUser) return <Login />;
-  return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<Schedules />} />
-        <Route path="/membros" element={<Members />} />
-        <Route path="/ministerios" element={<Ministries />} />
-        {currentUser.role === "admin" && <Route path="/usuarios" element={<Users />} />}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppLayout>
-  );
-}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -37,11 +21,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       <StoreProvider>
-        <AuthProvider>
+        <AuditProvider>
           <BrowserRouter>
-            <AuthGate />
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/escalas" element={<Schedules />} />
+                <Route path="/membros" element={<Members />} />
+                <Route path="/ministerios" element={<Ministries />} />
+                <Route path="/historico" element={<AuditLog />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppLayout>
           </BrowserRouter>
-        </AuthProvider>
+        </AuditProvider>
       </StoreProvider>
     </TooltipProvider>
   </QueryClientProvider>

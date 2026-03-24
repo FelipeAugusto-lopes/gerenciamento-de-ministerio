@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
-import { useAuth } from "@/store/AuthContext";
+import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
 import { Plus, Pencil, Trash2, X, Check, Phone, Search, History, CheckCircle2, Clock, BarChart3, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,41 +25,47 @@ const statusIcons: Record<ScheduleStatus, string> = {
 
 export default function MembersPage() {
   const { members, ministries, schedules, addMember, updateMember, deleteMember } = useStore();
-  const { isAdmin } = useAuth();
+  const { addEntry } = useAudit();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", ministryIds: [] as string[] });
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formMinistryIds, setFormMinistryIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
 
   const showSaved = () => { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 2000); };
-  const resetForm = () => setForm({ name: "", phone: "", ministryIds: [] });
+  const resetForm = () => { setFormName(""); setFormPhone(""); setFormMinistryIds([]); };
 
   const toggleMinistry = (id: string) => {
-    setForm(prev => ({
-      ...prev,
-      ministryIds: prev.ministryIds.includes(id)
-        ? prev.ministryIds.filter(x => x !== id)
-        : [...prev.ministryIds, id],
-    }));
+    setFormMinistryIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleAdd = () => {
-    if (!form.name.trim()) return;
-    addMember({ name: form.name.trim(), phone: form.phone || undefined, ministryIds: form.ministryIds });
+    if (!formName.trim()) return;
+    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    addEntry("Adicionou membro", formName.trim());
     resetForm(); setShowAdd(false); showSaved();
   };
 
   const handleSave = () => {
-    if (!form.name.trim() || !editId) return;
-    updateMember({ id: editId, name: form.name.trim(), phone: form.phone || undefined, ministryIds: form.ministryIds });
+    if (!formName.trim() || !editId) return;
+    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    addEntry("Editou membro", formName.trim());
     setEditId(null); resetForm(); showSaved();
   };
 
   const startEdit = (m: typeof members[0]) => {
     setEditId(m.id);
-    setForm({ name: m.name, phone: m.phone || "", ministryIds: m.ministryIds });
+    setFormName(m.name);
+    setFormPhone(m.phone || "");
+    setFormMinistryIds(m.ministryIds);
+  };
+
+  const handleDelete = (m: typeof members[0]) => {
+    deleteMember(m.id);
+    addEntry("Removeu membro", m.name);
   };
 
   const filteredMembers = useMemo(() => {
@@ -68,7 +74,6 @@ export default function MembersPage() {
     return members.filter(m => m.name.toLowerCase().includes(s));
   }, [members, search]);
 
-  // Member stats
   const getMemberStats = (memberId: string) => {
     const history = schedules.filter(s => s.memberId === memberId);
     if (history.length === 0) return { total: 0, lastServed: null as string | null };
@@ -95,15 +100,15 @@ export default function MembersPage() {
     };
   }, [historyMemberId, schedules]);
 
-  const FormFields = ({ onSubmit }: { onSubmit: () => void }) => (
+  const renderFormFields = (onSubmit: () => void) => (
     <div className="space-y-4">
-      <Input placeholder="Nome completo" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && onSubmit()} className="h-12 text-base" />
-      <Input placeholder="Telefone (opcional)" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="h-12 text-base" />
+      <Input placeholder="Nome completo" value={formName} onChange={e => setFormName(e.target.value)} onKeyDown={e => e.key === "Enter" && onSubmit()} className="h-12 text-base" />
+      <Input placeholder="Telefone (opcional)" value={formPhone} onChange={e => setFormPhone(e.target.value)} className="h-12 text-base" />
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Ministérios:</p>
         <div className="flex flex-wrap gap-2">
           {ministries.map(min => (
-            <button key={min.id} onClick={() => toggleMinistry(min.id)} className={cn("ministry-badge border transition-all text-sm py-1 px-3", form.ministryIds.includes(min.id) ? "ring-2 ring-offset-1 ring-foreground/20" : "opacity-50")} style={getMinistryStyle(min.colorIndex)}>
+            <button key={min.id} onClick={() => toggleMinistry(min.id)} className={cn("ministry-badge border transition-all text-sm py-1 px-3", formMinistryIds.includes(min.id) ? "ring-2 ring-offset-1 ring-foreground/20" : "opacity-50")} style={getMinistryStyle(min.colorIndex)}>
               {min.name}
             </button>
           ))}
@@ -141,11 +146,10 @@ export default function MembersPage() {
 
       {showAdd && (
         <div className="rounded-lg border bg-card p-5 animate-fade-in">
-          <FormFields onSubmit={handleAdd} />
+          {renderFormFields(handleAdd)}
         </div>
       )}
 
-      {/* Member history dialog with stats */}
       <Dialog open={!!historyMemberId} onOpenChange={() => setHistoryMemberId(null)}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-auto">
           <DialogHeader>
@@ -154,7 +158,6 @@ export default function MembersPage() {
               Histórico — {members.find(m => m.id === historyMemberId)?.name}
             </DialogTitle>
           </DialogHeader>
-
           {memberStats && (
             <div className="grid grid-cols-3 gap-3 pt-2">
               <div className="rounded-lg border bg-muted/50 p-3 text-center">
@@ -171,7 +174,6 @@ export default function MembersPage() {
               </div>
             </div>
           )}
-
           {memberHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma escala registrada.</p>
           ) : (
@@ -202,7 +204,7 @@ export default function MembersPage() {
           return (
             <div key={m.id} className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md">
               {editId === m.id ? (
-                <FormFields onSubmit={handleSave} />
+                renderFormFields(handleSave)
               ) : (
                 <>
                   <div className="flex items-start justify-between mb-2">
@@ -221,20 +223,17 @@ export default function MembersPage() {
                       <button onClick={() => startEdit(m)} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button onClick={() => deleteMember(m.id)} className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                      <button onClick={() => handleDelete(m)} className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
-
-                  {/* Mini stats */}
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2">
                     <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" /> {stats.total} escalas</span>
                     {stats.lastServed && (
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(stats.lastServed)}</span>
                     )}
                   </div>
-
                   <div className="flex flex-wrap gap-1.5">
                     {m.ministryIds.map(mid => {
                       const min = ministries.find(x => x.id === mid);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@/store/StoreContext";
-import { useAuth } from "@/store/AuthContext";
+import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle } from "@/lib/helpers";
 import { MINISTRY_COLORS } from "@/types";
 import { Plus, Pencil, Trash2, X, Check, CheckCircle2 } from "lucide-react";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 export default function MinistriesPage() {
   const { ministries, addMinistry, updateMinistry, deleteMinistry } = useStore();
-  const { isAdmin } = useAuth();
+  const { addEntry } = useAudit();
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState(0);
@@ -24,17 +24,20 @@ export default function MinistriesPage() {
   const handleAdd = () => {
     if (!newName.trim()) return;
     addMinistry({ name: newName.trim(), colorIndex: newColor });
-    setNewName("");
-    setNewColor(0);
-    setShowAdd(false);
-    showSaved();
+    addEntry("Adicionou ministério", newName.trim());
+    setNewName(""); setNewColor(0); setShowAdd(false); showSaved();
   };
 
   const handleSave = () => {
     if (!editName.trim() || !editId) return;
     updateMinistry({ id: editId, name: editName.trim(), colorIndex: editColor });
-    setEditId(null);
-    showSaved();
+    addEntry("Editou ministério", editName.trim());
+    setEditId(null); showSaved();
+  };
+
+  const handleDelete = (m: typeof ministries[0]) => {
+    deleteMinistry(m.id);
+    addEntry("Removeu ministério", m.name);
   };
 
   return (
@@ -50,14 +53,12 @@ export default function MinistriesPage() {
           <h1 className="font-display text-2xl font-bold text-foreground">Ministérios</h1>
           <p className="text-sm text-muted-foreground">Gerencie os ministérios da igreja</p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base">
-            <Plus className="h-5 w-5" /> Novo Ministério
-          </Button>
-        )}
+        <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base">
+          <Plus className="h-5 w-5" /> Novo Ministério
+        </Button>
       </div>
 
-      {showAdd && isAdmin && (
+      {showAdd && (
         <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
           <Input placeholder="Nome do ministério" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} className="h-12 text-base" />
           <div className="flex flex-wrap gap-2">
@@ -75,7 +76,7 @@ export default function MinistriesPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {ministries.map(m => (
           <div key={m.id} className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md" style={{ borderLeftWidth: 4, borderLeftColor: `hsl(${MINISTRY_COLORS[m.colorIndex % MINISTRY_COLORS.length]})` }}>
-            {editId === m.id && isAdmin ? (
+            {editId === m.id ? (
               <div className="space-y-3">
                 <Input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSave()} className="h-12 text-base" />
                 <div className="flex flex-wrap gap-2">
@@ -91,16 +92,14 @@ export default function MinistriesPage() {
             ) : (
               <div className="flex items-center justify-between">
                 <span className="ministry-badge border text-sm" style={getMinistryStyle(m.colorIndex)}>{m.name}</span>
-                {isAdmin && (
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditId(m.id); setEditName(m.name); setEditColor(m.colorIndex); }} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => deleteMinistry(m.id)} className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditId(m.id); setEditName(m.name); setEditColor(m.colorIndex); }} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => handleDelete(m)} className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
