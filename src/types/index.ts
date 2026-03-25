@@ -19,7 +19,7 @@ export interface Schedule {
   ministryId: string;
   date: string; // ISO date
   shift: Shift;
-  memberId: string;
+  memberIds: string[];
   status: ScheduleStatus;
 }
 
