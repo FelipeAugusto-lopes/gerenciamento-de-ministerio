@@ -3,9 +3,8 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, ChevronLeft, ChevronRight, Wand2, Calendar, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -42,12 +41,11 @@ export default function IndexPage() {
   const [newForm, setNewForm] = useState({
     ministryId: "",
     shift: "Manhã" as Shift,
-    memberId: "",
+    selectedMemberIds: [] as string[],
   });
 
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
-  // Schedules grouped by date for the current month
   const schedulesByDate = useMemo(() => {
     const map = new Map<string, typeof schedules>();
     schedules.forEach(s => {
@@ -78,7 +76,11 @@ export default function IndexPage() {
 
   const selectedSchedules = useMemo(() => {
     if (!selectedDate) return [];
-    return schedules.filter(s => s.date === selectedDate).sort((a, b) => a.shift.localeCompare(b.shift));
+    return schedules.filter(s => s.date === selectedDate).sort((a, b) => {
+      const shiftOrder = a.shift.localeCompare(b.shift);
+      if (shiftOrder !== 0) return shiftOrder;
+      return a.ministryId.localeCompare(b.ministryId);
+    });
   }, [selectedDate, schedules]);
 
   const availableMembers = useMemo(() => {
@@ -86,26 +88,28 @@ export default function IndexPage() {
     return members.filter(m => m.ministryIds.includes(newForm.ministryId));
   }, [newForm.ministryId, members]);
 
-  // Check conflicts
-  const getMemberConflict = (memberId: string, date: string) => {
-    if (!memberId || !date) return null;
-    const existing = schedules.filter(s => s.memberId === memberId && s.date === date);
-    if (existing.length === 0) return null;
-    return existing.map(s => {
-      const min = ministries.find(m => m.id === s.ministryId);
-      return min?.name || "?";
-    }).join(", ");
+  const toggleMember = (memberId: string) => {
+    setNewForm(f => ({
+      ...f,
+      selectedMemberIds: f.selectedMemberIds.includes(memberId)
+        ? f.selectedMemberIds.filter(id => id !== memberId)
+        : [...f.selectedMemberIds, memberId],
+    }));
   };
 
-  const currentConflict = newForm.memberId && selectedDate ? getMemberConflict(newForm.memberId, selectedDate) : null;
-
   const handleAdd = () => {
-    if (!newForm.ministryId || !newForm.memberId || !selectedDate) return;
-    addSchedule({ ministryId: newForm.ministryId, date: selectedDate, shift: newForm.shift, memberId: newForm.memberId, status: "Pendente" });
+    if (!newForm.ministryId || newForm.selectedMemberIds.length === 0 || !selectedDate) return;
+    addSchedule({
+      ministryId: newForm.ministryId,
+      date: selectedDate,
+      shift: newForm.shift,
+      memberIds: newForm.selectedMemberIds,
+      status: "Pendente",
+    });
     const ministry = ministries.find(m => m.id === newForm.ministryId);
-    const member = members.find(m => m.id === newForm.memberId);
-    addEntry("Adicionou escala", `${member?.name} em ${ministry?.name} — ${formatDate(selectedDate)} (${newForm.shift})`);
-    setNewForm({ ministryId: "", shift: "Manhã", memberId: "" });
+    const memberNames = newForm.selectedMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
+    addEntry("Adicionou escala", `${memberNames} em ${ministry?.name} — ${formatDate(selectedDate)} (${newForm.shift})`);
+    setNewForm({ ministryId: "", shift: "Manhã", selectedMemberIds: [] });
     setShowAddDialog(false);
   };
 
@@ -113,8 +117,8 @@ export default function IndexPage() {
     const s = schedules.find(x => x.id === id);
     if (s) {
       const ministry = ministries.find(m => m.id === s.ministryId);
-      const member = members.find(m => m.id === s.memberId);
-      addEntry("Removeu escala", `${member?.name} de ${ministry?.name} — ${formatDate(s.date)}`);
+      const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
+      addEntry("Removeu escala", `${memberNames} de ${ministry?.name} — ${formatDate(s.date)}`);
     }
     deleteSchedule(id);
   };
@@ -122,11 +126,20 @@ export default function IndexPage() {
   const handleStatusChange = (s: typeof schedules[0], newStatus: ScheduleStatus) => {
     updateSchedule({ ...s, status: newStatus });
     const ministry = ministries.find(m => m.id === s.ministryId);
-    const member = members.find(m => m.id === s.memberId);
-    addEntry("Alterou status", `${member?.name} (${ministry?.name}) → ${newStatus}`);
+    const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
+    addEntry("Alterou status", `${memberNames} (${ministry?.name}) → ${newStatus}`);
   };
 
   const todayStr = today.toISOString().split("T")[0];
+
+  // Group selected schedules by shift for the table view
+  const groupedByShift = useMemo(() => {
+    const shifts = ["Manhã", "Noite"] as Shift[];
+    return shifts.map(shift => ({
+      shift,
+      schedules: selectedSchedules.filter(s => s.shift === shift),
+    })).filter(g => g.schedules.length > 0);
+  }, [selectedSchedules]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -204,10 +217,10 @@ export default function IndexPage() {
         </div>
       </div>
 
-      {/* Selected date detail */}
+      {/* Selected date detail — table view matching reference */}
       {selectedDate && (
-        <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between">
+        <div className="rounded-lg border bg-card overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/30">
             <div>
               <h3 className="font-display text-lg font-bold text-foreground">
                 {formatDate(selectedDate)} — {getDayOfWeek(selectedDate)}
@@ -225,46 +238,121 @@ export default function IndexPage() {
               <p className="text-sm">Nenhuma escala nesta data.</p>
             </div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {selectedSchedules.map(s => {
-                const ministry = ministries.find(m => m.id === s.ministryId);
-                const member = members.find(m => m.id === s.memberId);
-                return (
-                  <div
-                    key={s.id}
-                    className="rounded-lg border bg-card p-3 space-y-2"
-                    style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">{s.shift}</span>
-                        <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Ministério</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Turno</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Pessoas</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-2.5 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedByShift.map(group => (
+                      group.schedules.map((s, idx) => {
+                        const ministry = ministries.find(m => m.id === s.ministryId);
+                        const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+                        return (
+                          <tr key={s.id} className={cn(
+                            "border-b last:border-0 transition-colors hover:bg-muted/30",
+                            s.status === "Recusado" && "opacity-60",
+                            idx === 0 && group.schedules.length > 1 && "border-t-2 border-t-muted"
+                          )}>
+                            <td className="px-4 py-2.5">
+                              <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className={cn(
+                                "text-xs font-medium px-2 py-1 rounded",
+                                s.shift === "Manhã" ? "bg-amber-500/15 text-amber-700" : "bg-indigo-500/15 text-indigo-700"
+                              )}>
+                                {s.shift}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex flex-wrap gap-1.5">
+                                {memberNames.map((name, i) => (
+                                  <span key={i} className="text-sm font-medium text-foreground">{name}{i < memberNames.length - 1 ? "," : ""}</span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                                <SelectTrigger className="w-fit h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                                  <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                                  <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                                  <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="grid gap-2 p-4 md:hidden">
+                {selectedSchedules.map(s => {
+                  const ministry = ministries.find(m => m.id === s.ministryId);
+                  const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+                  return (
+                    <div
+                      key={s.id}
+                      className="rounded-lg border bg-card p-3 space-y-2"
+                      style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
+                        <div className="flex items-center gap-1">
+                          <span className={cn(
+                            "text-xs font-medium px-2 py-0.5 rounded",
+                            s.shift === "Manhã" ? "bg-amber-500/15 text-amber-700" : "bg-indigo-500/15 text-indigo-700"
+                          )}>
+                            {s.shift}
+                          </span>
+                          <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
+                      <p className="text-sm font-medium text-foreground">{memberNames.join(", ")}</p>
+                      <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                        <SelectTrigger className="w-fit h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                          <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                          <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                          <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <p className="text-sm font-medium text-foreground">{member?.name || "?"}</p>
-                    <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                      <SelectTrigger className="w-fit h-7 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                        <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                        <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                        <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
 
-      {/* Add schedule dialog */}
+      {/* Add schedule dialog — multi-member selection */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -273,7 +361,7 @@ export default function IndexPage() {
           <div className="space-y-4 pt-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
-              <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, memberId: "" }))}>
+              <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] }))}>
                 <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -291,35 +379,58 @@ export default function IndexPage() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Pessoa</label>
-              <Select value={newForm.memberId} onValueChange={v => setNewForm(f => ({ ...f, memberId: v }))}>
-                <SelectTrigger className={cn("h-12 text-base", currentConflict && "border-destructive")}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {availableMembers.map(m => {
-                    const conflict = selectedDate ? getMemberConflict(m.id, selectedDate) : null;
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Pessoas ({newForm.selectedMemberIds.length} selecionada{newForm.selectedMemberIds.length !== 1 ? "s" : ""})
+              </label>
+              {newForm.selectedMemberIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {newForm.selectedMemberIds.map(id => {
+                    const member = members.find(m => m.id === id);
                     return (
-                      <SelectItem key={m.id} value={m.id}>
-                        <span className="flex items-center gap-2">
-                          {m.name}
-                          {conflict && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-destructive">
-                              <AlertTriangle className="h-3 w-3" /> {conflict}
-                            </span>
-                          )}
-                        </span>
-                      </SelectItem>
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium">
+                        {member?.name || "?"}
+                        <button onClick={() => toggleMember(id)} className="hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
                     );
                   })}
-                </SelectContent>
-              </Select>
-            </div>
-            {currentConflict && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-center gap-2 text-sm text-destructive">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>Já escalado(a) em: {currentConflict}</span>
+                </div>
+              )}
+              <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
+                {availableMembers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-3 text-center">
+                    {newForm.ministryId ? "Nenhum membro neste ministério" : "Selecione um ministério"}
+                  </p>
+                ) : (
+                  availableMembers.map(m => {
+                    const isSelected = newForm.selectedMemberIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => toggleMember(m.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
+                          isSelected && "bg-primary/5"
+                        )}
+                      >
+                        <span className={cn(
+                          "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                        )}>
+                          {isSelected && <span className="text-xs">✓</span>}
+                        </span>
+                        <span className={cn("font-medium", isSelected ? "text-primary" : "text-foreground")}>{m.name}</span>
+                      </button>
+                    );
+                  })
+                )}
               </div>
-            )}
-            <Button className="w-full h-12 text-base" onClick={handleAdd}>Adicionar Escala</Button>
+            </div>
+            <Button className="w-full h-12 text-base" onClick={handleAdd} disabled={newForm.selectedMemberIds.length === 0 || !newForm.ministryId}>
+              <UserPlus className="h-5 w-5 mr-2" />
+              Adicionar {newForm.selectedMemberIds.length > 0 ? `${newForm.selectedMemberIds.length} pessoa${newForm.selectedMemberIds.length > 1 ? "s" : ""}` : "Escala"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
