@@ -75,7 +75,7 @@ export default function MembersPage() {
   }, [members, search]);
 
   const getMemberStats = (memberId: string) => {
-    const history = schedules.filter(s => s.memberId === memberId);
+    const history = schedules.filter(s => s.memberIds.includes(memberId));
     if (history.length === 0) return { total: 0, lastServed: null as string | null };
     const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
     return { total: history.length, lastServed: sorted[0].date };
@@ -83,12 +83,12 @@ export default function MembersPage() {
 
   const memberHistory = useMemo(() => {
     if (!historyMemberId) return [];
-    return schedules.filter(s => s.memberId === historyMemberId).sort((a, b) => b.date.localeCompare(a.date));
+    return schedules.filter(s => s.memberIds.includes(historyMemberId)).sort((a, b) => b.date.localeCompare(a.date));
   }, [historyMemberId, schedules]);
 
   const memberStats = useMemo(() => {
     if (!historyMemberId) return null;
-    const history = schedules.filter(s => s.memberId === historyMemberId);
+    const history = schedules.filter(s => s.memberIds.includes(historyMemberId));
     if (history.length === 0) return { total: 0, lastServed: null as string | null, frequency: "Nunca escalado" };
     const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
