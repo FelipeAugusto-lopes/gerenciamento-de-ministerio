@@ -174,7 +174,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addNotification = useCallback(async (n: Omit<Notification, "id">) => {
     await supabase.from("notifications").insert({
       member_id: n.memberId,
-      schedule_id: n.scheduleId,
+      schedule_id: n.scheduleId || null,
       message: n.message,
       read: n.read,
     });
