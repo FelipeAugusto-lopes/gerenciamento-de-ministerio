@@ -415,24 +415,36 @@ export default function IndexPage() {
                     {newForm.ministryId ? "Nenhum membro neste ministério" : "Selecione um ministério"}
                   </p>
                 ) : (
-                  availableMembers.map(m => {
+                availableMembers.map(m => {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
+                    const conflict = getMemberConflict(m.id);
+                    const hasConflict = !!conflict && !isSelected;
                     return (
                       <button
                         key={m.id}
-                        onClick={() => toggleMember(m.id)}
+                        onClick={() => {
+                          if (hasConflict) return;
+                          toggleMember(m.id);
+                        }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
-                          isSelected && "bg-primary/5"
+                          "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors",
+                          isSelected && "bg-primary/5",
+                          hasConflict ? "opacity-60 cursor-not-allowed bg-destructive/5" : "hover:bg-muted/50"
                         )}
                       >
                         <span className={cn(
                           "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                          isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-destructive/50" : "border-muted-foreground/30"
                         )}>
                           {isSelected && <span className="text-xs">✓</span>}
+                          {hasConflict && <AlertTriangle className="h-3 w-3 text-destructive" />}
                         </span>
-                        <span className={cn("font-medium", isSelected ? "text-primary" : "text-foreground")}>{m.name}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className={cn("font-medium", isSelected ? "text-primary" : hasConflict ? "text-destructive" : "text-foreground")}>{m.name}</span>
+                          {hasConflict && (
+                            <p className="text-[10px] text-destructive">Já escalado em {conflict.ministryName} ({conflict.shift})</p>
+                          )}
+                        </div>
                       </button>
                     );
                   })
