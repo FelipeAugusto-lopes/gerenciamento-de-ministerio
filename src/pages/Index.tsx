@@ -251,114 +251,56 @@ export default function IndexPage() {
             </div>
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden md:block">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Ministério</th>
-                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Turno</th>
-                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Pessoas</th>
-                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-                      <th className="px-4 py-2.5 w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupedByShift.map(group => (
-                      group.schedules.map((s, idx) => {
-                        const ministry = ministries.find(m => m.id === s.ministryId);
-                        const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
-                        return (
-                          <tr key={s.id} className={cn(
-                            "border-b last:border-0 transition-colors hover:bg-muted/30",
-                            s.status === "Recusado" && "opacity-60",
-                            idx === 0 && group.schedules.length > 1 && "border-t-2 border-t-muted"
-                          )}>
-                            <td className="px-4 py-2.5">
+              {groupedByShift.map(group => (
+                <div key={group.shift} className="border-b last:border-0">
+                  <div className={cn(
+                    "px-5 py-2 flex items-center gap-2 text-sm font-semibold",
+                    group.shift === "Manhã" ? "bg-amber-500/10 text-amber-700" : "bg-indigo-500/10 text-indigo-700"
+                  )}>
+                    <span>{group.shift === "Manhã" ? "☀️" : "🌙"}</span>
+                    <span>Turno {group.shift}</span>
+                    <span className="text-xs font-normal opacity-70">({group.schedules.length} escala{group.schedules.length !== 1 ? "s" : ""})</span>
+                  </div>
+                  <div className="divide-y">
+                    {group.schedules.map(s => {
+                      const ministry = ministries.find(m => m.id === s.ministryId);
+                      const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+                      const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
+                      return (
+                        <div
+                          key={s.id}
+                          className={cn(
+                            "flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/30",
+                            s.status === "Recusado" && "opacity-60"
+                          )}
+                          style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${color})` : undefined }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
                               <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span className={cn(
-                                "text-xs font-medium px-2 py-1 rounded",
-                                s.shift === "Manhã" ? "bg-amber-500/15 text-amber-700" : "bg-indigo-500/15 text-indigo-700"
-                              )}>
-                                {s.shift}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <div className="flex flex-wrap gap-1.5">
-                                {memberNames.map((name, i) => (
-                                  <span key={i} className="text-sm font-medium text-foreground">{name}{i < memberNames.length - 1 ? "," : ""}</span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                                <SelectTrigger className="w-fit h-7 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                                  <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                                  <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                                  <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="grid gap-2 p-4 md:hidden">
-                {selectedSchedules.map(s => {
-                  const ministry = ministries.find(m => m.id === s.ministryId);
-                  const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
-                  return (
-                    <div
-                      key={s.id}
-                      className="rounded-lg border bg-card p-3 space-y-2"
-                      style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                        <div className="flex items-center gap-1">
-                          <span className={cn(
-                            "text-xs font-medium px-2 py-0.5 rounded",
-                            s.shift === "Manhã" ? "bg-amber-500/15 text-amber-700" : "bg-indigo-500/15 text-indigo-700"
-                          )}>
-                            {s.shift}
-                          </span>
-                          <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                            </div>
+                            <p className="text-sm font-medium text-foreground">{memberNames.join(", ")}</p>
+                          </div>
+                          <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                            <SelectTrigger className="w-fit h-7 text-xs shrink-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                              <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                              <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                              <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive shrink-0">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      </div>
-                      <p className="text-sm font-medium text-foreground">{memberNames.join(", ")}</p>
-                      <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                        <SelectTrigger className="w-fit h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                          <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                          <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                          <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </>
           )}
         </div>
