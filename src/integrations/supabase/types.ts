@@ -120,7 +120,7 @@ export type Database = {
           member_id: string
           message: string
           read: boolean
-          schedule_id: string
+          schedule_id: string | null
         }
         Insert: {
           created_at?: string
@@ -128,7 +128,7 @@ export type Database = {
           member_id: string
           message: string
           read?: boolean
-          schedule_id: string
+          schedule_id?: string | null
         }
         Update: {
           created_at?: string
@@ -136,7 +136,7 @@ export type Database = {
           member_id?: string
           message?: string
           read?: boolean
-          schedule_id?: string
+          schedule_id?: string | null
         }
         Relationships: [
           {
