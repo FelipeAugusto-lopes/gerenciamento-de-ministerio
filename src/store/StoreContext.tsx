@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { Member, Ministry, Schedule, Notification, DEFAULT_MINISTRIES } from "@/types";
+import { Member, Ministry, Schedule, Notification } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StoreContextType {
   ministries: Ministry[];
   members: Member[];
   schedules: Schedule[];
   notifications: Notification[];
+  loading: boolean;
   addMinistry: (m: Omit<Ministry, "id">) => void;
   updateMinistry: (m: Ministry) => void;
   deleteMinistry: (id: string) => void;
@@ -22,51 +24,178 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
-}
-
-let nextId = Date.now();
-const genId = () => String(++nextId);
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [ministries, setMinistries] = useState<Ministry[]>(() => load("ministries", DEFAULT_MINISTRIES));
-  const [members, setMembers] = useState<Member[]>(() => load("members", []));
-  const [schedules, setSchedules] = useState<Schedule[]>(() => {
-    const raw = load<any[]>("schedules", []);
-    return raw.map(s => ({
-      ...s,
-      memberIds: Array.isArray(s.memberIds) ? s.memberIds : s.memberId ? [s.memberId] : [],
-    }));
-  });
-  const [notifications, setNotifications] = useState<Notification[]>(() => load("notifications", []));
+  const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { localStorage.setItem("ministries", JSON.stringify(ministries)); }, [ministries]);
-  useEffect(() => { localStorage.setItem("members", JSON.stringify(members)); }, [members]);
-  useEffect(() => { localStorage.setItem("schedules", JSON.stringify(schedules)); }, [schedules]);
-  useEffect(() => { localStorage.setItem("notifications", JSON.stringify(notifications)); }, [notifications]);
+  // --- Fetch all data ---
+  const fetchMinistries = useCallback(async () => {
+    const { data } = await supabase.from("ministries").select("*").order("name");
+    if (data) setMinistries(data.map(m => ({ id: m.id, name: m.name, colorIndex: m.color_index })));
+  }, []);
 
-  const addMinistry = useCallback((m: Omit<Ministry, "id">) => setMinistries(prev => [...prev, { ...m, id: genId() }]), []);
-  const updateMinistry = useCallback((m: Ministry) => setMinistries(prev => prev.map(x => x.id === m.id ? m : x)), []);
-  const deleteMinistry = useCallback((id: string) => setMinistries(prev => prev.filter(x => x.id !== id)), []);
+  const fetchMembers = useCallback(async () => {
+    const { data: membersData } = await supabase.from("members").select("*").order("name");
+    const { data: mmData } = await supabase.from("member_ministries").select("*");
+    if (membersData) {
+      setMembers(membersData.map(m => ({
+        id: m.id,
+        name: m.name,
+        phone: m.phone || undefined,
+        ministryIds: (mmData || []).filter(mm => mm.member_id === m.id).map(mm => mm.ministry_id),
+      })));
+    }
+  }, []);
 
-  const addMember = useCallback((m: Omit<Member, "id">) => setMembers(prev => [...prev, { ...m, id: genId() }]), []);
-  const updateMember = useCallback((m: Member) => setMembers(prev => prev.map(x => x.id === m.id ? m : x)), []);
-  const deleteMember = useCallback((id: string) => setMembers(prev => prev.filter(x => x.id !== id)), []);
+  const fetchSchedules = useCallback(async () => {
+    const { data: schedData } = await supabase.from("schedules").select("*").order("date", { ascending: false });
+    const { data: smData } = await supabase.from("schedule_members").select("*");
+    if (schedData) {
+      setSchedules(schedData.map(s => ({
+        id: s.id,
+        ministryId: s.ministry_id,
+        date: s.date,
+        shift: s.shift as Schedule["shift"],
+        status: s.status as Schedule["status"],
+        memberIds: (smData || []).filter(sm => sm.schedule_id === s.id).map(sm => sm.member_id),
+      })));
+    }
+  }, []);
 
-  const addSchedule = useCallback((s: Omit<Schedule, "id">) => setSchedules(prev => [...prev, { ...s, id: genId() }]), []);
-  const updateSchedule = useCallback((s: Schedule) => setSchedules(prev => prev.map(x => x.id === s.id ? s : x)), []);
-  const deleteSchedule = useCallback((id: string) => setSchedules(prev => prev.filter(x => x.id !== id)), []);
+  const fetchNotifications = useCallback(async () => {
+    const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+    if (data) {
+      setNotifications(data.map(n => ({
+        id: n.id,
+        memberId: n.member_id,
+        scheduleId: n.schedule_id,
+        message: n.message,
+        createdAt: n.created_at,
+        read: n.read,
+      })));
+    }
+  }, []);
 
-  const addNotification = useCallback((n: Omit<Notification, "id">) => setNotifications(prev => [{ ...n, id: genId() }, ...prev]), []);
-  const markNotificationRead = useCallback((id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n)), []);
-  const markAllNotificationsRead = useCallback(() => setNotifications(prev => prev.map(n => ({ ...n, read: true }))), []);
+  useEffect(() => {
+    Promise.all([fetchMinistries(), fetchMembers(), fetchSchedules(), fetchNotifications()])
+      .finally(() => setLoading(false));
+  }, [fetchMinistries, fetchMembers, fetchSchedules, fetchNotifications]);
+
+  // --- Realtime subscriptions ---
+  useEffect(() => {
+    const channel = supabase.channel("store-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ministries" }, () => fetchMinistries())
+      .on("postgres_changes", { event: "*", schema: "public", table: "members" }, () => fetchMembers())
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_ministries" }, () => fetchMembers())
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => fetchSchedules())
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedule_members" }, () => fetchSchedules())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => fetchNotifications())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMinistries, fetchMembers, fetchSchedules, fetchNotifications]);
+
+  // --- Ministries CRUD ---
+  const addMinistry = useCallback(async (m: Omit<Ministry, "id">) => {
+    await supabase.from("ministries").insert({ name: m.name, color_index: m.colorIndex });
+  }, []);
+
+  const updateMinistry = useCallback(async (m: Ministry) => {
+    await supabase.from("ministries").update({ name: m.name, color_index: m.colorIndex }).eq("id", m.id);
+  }, []);
+
+  const deleteMinistry = useCallback(async (id: string) => {
+    await supabase.from("ministries").delete().eq("id", id);
+  }, []);
+
+  // --- Members CRUD ---
+  const addMember = useCallback(async (m: Omit<Member, "id">) => {
+    const { data } = await supabase.from("members").insert({ name: m.name, phone: m.phone || null }).select().single();
+    if (data && m.ministryIds.length > 0) {
+      await supabase.from("member_ministries").insert(
+        m.ministryIds.map(mid => ({ member_id: data.id, ministry_id: mid }))
+      );
+    }
+  }, []);
+
+  const updateMember = useCallback(async (m: Member) => {
+    await supabase.from("members").update({ name: m.name, phone: m.phone || null }).eq("id", m.id);
+    // Replace ministry associations
+    await supabase.from("member_ministries").delete().eq("member_id", m.id);
+    if (m.ministryIds.length > 0) {
+      await supabase.from("member_ministries").insert(
+        m.ministryIds.map(mid => ({ member_id: m.id, ministry_id: mid }))
+      );
+    }
+  }, []);
+
+  const deleteMember = useCallback(async (id: string) => {
+    await supabase.from("members").delete().eq("id", id);
+  }, []);
+
+  // --- Schedules CRUD ---
+  const addSchedule = useCallback(async (s: Omit<Schedule, "id">) => {
+    const { data } = await supabase.from("schedules").insert({
+      ministry_id: s.ministryId,
+      date: s.date,
+      shift: s.shift,
+      status: s.status,
+    }).select().single();
+    if (data && s.memberIds.length > 0) {
+      await supabase.from("schedule_members").insert(
+        s.memberIds.map(mid => ({ schedule_id: data.id, member_id: mid }))
+      );
+    }
+  }, []);
+
+  const updateSchedule = useCallback(async (s: Schedule) => {
+    await supabase.from("schedules").update({
+      ministry_id: s.ministryId,
+      date: s.date,
+      shift: s.shift,
+      status: s.status,
+    }).eq("id", s.id);
+    // Replace member associations
+    await supabase.from("schedule_members").delete().eq("schedule_id", s.id);
+    if (s.memberIds.length > 0) {
+      await supabase.from("schedule_members").insert(
+        s.memberIds.map(mid => ({ schedule_id: s.id, member_id: mid }))
+      );
+    }
+  }, []);
+
+  const deleteSchedule = useCallback(async (id: string) => {
+    await supabase.from("schedules").delete().eq("id", id);
+  }, []);
+
+  // --- Notifications ---
+  const addNotification = useCallback(async (n: Omit<Notification, "id">) => {
+    await supabase.from("notifications").insert({
+      member_id: n.memberId,
+      schedule_id: n.scheduleId || null,
+      message: n.message,
+      read: n.read,
+    });
+  }, []);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    await supabase.from("notifications").update({ read: true }).eq("read", false);
+  }, []);
 
   return (
-    <StoreContext.Provider value={{ ministries, members, schedules, notifications, addMinistry, updateMinistry, deleteMinistry, addMember, updateMember, deleteMember, addSchedule, updateSchedule, deleteSchedule, addNotification, markNotificationRead, markAllNotificationsRead }}>
+    <StoreContext.Provider value={{
+      ministries, members, schedules, notifications, loading,
+      addMinistry, updateMinistry, deleteMinistry,
+      addMember, updateMember, deleteMember,
+      addSchedule, updateSchedule, deleteSchedule,
+      addNotification, markNotificationRead, markAllNotificationsRead,
+    }}>
       {children}
     </StoreContext.Provider>
   );
