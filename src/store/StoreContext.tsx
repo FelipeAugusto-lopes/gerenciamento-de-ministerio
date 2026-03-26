@@ -35,7 +35,13 @@ const genId = () => String(++nextId);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [ministries, setMinistries] = useState<Ministry[]>(() => load("ministries", DEFAULT_MINISTRIES));
   const [members, setMembers] = useState<Member[]>(() => load("members", []));
-  const [schedules, setSchedules] = useState<Schedule[]>(() => load("schedules", []));
+  const [schedules, setSchedules] = useState<Schedule[]>(() => {
+    const raw = load<any[]>("schedules", []);
+    return raw.map(s => ({
+      ...s,
+      memberIds: Array.isArray(s.memberIds) ? s.memberIds : s.memberId ? [s.memberId] : [],
+    }));
+  });
   const [notifications, setNotifications] = useState<Notification[]>(() => load("notifications", []));
 
   useEffect(() => { localStorage.setItem("ministries", JSON.stringify(ministries)); }, [ministries]);
