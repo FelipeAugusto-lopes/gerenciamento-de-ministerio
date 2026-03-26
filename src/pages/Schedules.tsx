@@ -76,6 +76,7 @@ export default function SchedulesPage() {
     });
   };
 
+
   const filtered = useMemo(() => {
     return schedules
       .filter(s => !filterDate || s.date === filterDate)
