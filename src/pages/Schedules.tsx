@@ -94,6 +94,18 @@ export default function SchedulesPage() {
     return newForm.ministryId ? members.filter(m => m.ministryIds.includes(newForm.ministryId)) : members;
   }, [newForm.ministryId, members]);
 
+  // Conflict detection: find members already scheduled on the selected date
+  const getMemberConflict = (memberId: string): { ministryName: string; shift: string } | null => {
+    if (!newForm.date) return null;
+    for (const s of schedules) {
+      if (s.date === newForm.date && s.memberIds.includes(memberId)) {
+        const min = ministries.find(m => m.id === s.ministryId);
+        return { ministryName: min?.name || "?", shift: s.shift };
+      }
+    }
+    return null;
+  };
+
   const toggleMember = (memberId: string) => {
     setNewForm(f => ({
       ...f,
