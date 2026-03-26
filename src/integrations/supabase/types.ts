@@ -14,7 +14,215 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          detail: string
+          id: string
+          username: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail: string
+          id?: string
+          username?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      member_ministries: {
+        Row: {
+          id: string
+          member_id: string
+          ministry_id: string
+        }
+        Insert: {
+          id?: string
+          member_id: string
+          ministry_id: string
+        }
+        Update: {
+          id?: string
+          member_id?: string
+          ministry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_ministries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_ministries_ministry_id_fkey"
+            columns: ["ministry_id"]
+            isOneToOne: false
+            referencedRelation: "ministries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      ministries: {
+        Row: {
+          color_index: number
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color_index?: number
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color_index?: number
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          member_id: string
+          message: string
+          read: boolean
+          schedule_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_id: string
+          message: string
+          read?: boolean
+          schedule_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_id?: string
+          message?: string
+          read?: boolean
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_members: {
+        Row: {
+          id: string
+          member_id: string
+          schedule_id: string
+        }
+        Insert: {
+          id?: string
+          member_id: string
+          schedule_id: string
+        }
+        Update: {
+          id?: string
+          member_id?: string
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_members_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_members_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          ministry_id: string
+          shift: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          ministry_id: string
+          shift: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          ministry_id?: string
+          shift?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_ministry_id_fkey"
+            columns: ["ministry_id"]
+            isOneToOne: false
+            referencedRelation: "ministries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
