@@ -3,7 +3,8 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2 } from "lucide-react";
+import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -239,9 +240,17 @@ export default function IndexPage() {
               </h3>
               <p className="text-sm text-muted-foreground">{selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
             </div>
-            <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
-              <Plus className="h-5 w-5" /> Nova Escala
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
+                <Share2 className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
+                <Plus className="h-5 w-5" /> Nova Escala
+              </Button>
+            </div>
           </div>
 
           {selectedSchedules.length === 0 ? (
