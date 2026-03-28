@@ -8,7 +8,6 @@ const navItems = [
   { to: "/escalas", label: "Escalas", icon: Calendar },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/ministerios", label: "Ministérios", icon: Church },
-  { to: "/historico", label: "Histórico", icon: History },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
