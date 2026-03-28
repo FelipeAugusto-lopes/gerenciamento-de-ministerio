@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreProvider } from "@/store/StoreContext";
 import { AuditProvider } from "@/store/AuditContext";
+// AuditLog page removed from nav but kept for internal logging
 import AppLayout from "@/components/AppLayout";
 import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
