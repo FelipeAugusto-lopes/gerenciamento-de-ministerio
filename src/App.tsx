@@ -11,7 +11,7 @@ import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
-import AuditLog from "@/pages/AuditLog";
+
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
