@@ -5,12 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreProvider } from "@/store/StoreContext";
 import { AuditProvider } from "@/store/AuditContext";
+// AuditLog page removed from nav but kept for internal logging
 import AppLayout from "@/components/AppLayout";
 import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
-import AuditLog from "@/pages/AuditLog";
+
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,7 +30,7 @@ const App = () => (
                 <Route path="/escalas" element={<Schedules />} />
                 <Route path="/membros" element={<Members />} />
                 <Route path="/ministerios" element={<Ministries />} />
-                <Route path="/historico" element={<AuditLog />} />
+                
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AppLayout>
