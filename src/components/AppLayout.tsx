@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, Users, Church, Menu, X, History, LayoutDashboard } from "lucide-react";
+import { Calendar, Users, Church, Menu, X, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
