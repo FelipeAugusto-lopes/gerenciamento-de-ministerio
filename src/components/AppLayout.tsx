@@ -20,7 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Church className="h-6 w-6 text-primary" />
-            <span className="font-display text-xl font-bold text-foreground">Escalas</span>
+            <span className="font-display text-xl font-bold text-foreground">INA Escalas</span>
           </Link>
 
           <nav className="hidden gap-1 md:flex items-center">

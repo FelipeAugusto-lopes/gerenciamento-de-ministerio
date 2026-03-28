@@ -30,7 +30,7 @@ const App = () => (
                 <Route path="/escalas" element={<Schedules />} />
                 <Route path="/membros" element={<Members />} />
                 <Route path="/ministerios" element={<Ministries />} />
-                <Route path="/historico" element={<AuditLog />} />
+                
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AppLayout>
