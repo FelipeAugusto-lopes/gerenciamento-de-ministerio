@@ -145,7 +145,7 @@ export default function MembersPage() {
       </div>
 
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 animate-fade-in">
+        <div className="content-card p-5 animate-fade-in">
           {renderFormFields(handleAdd)}
         </div>
       )}
