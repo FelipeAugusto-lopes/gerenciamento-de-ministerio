@@ -608,7 +608,7 @@ export default function SchedulesPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
+          <div className="hidden md:block content-card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">

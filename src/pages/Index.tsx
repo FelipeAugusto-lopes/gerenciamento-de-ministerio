@@ -232,7 +232,7 @@ export default function IndexPage() {
 
       {/* Selected date detail — table view matching reference */}
       {selectedDate && (
-        <div className="rounded-lg border bg-card overflow-hidden animate-fade-in">
+        <div className="content-card animate-fade-in">
           <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/30">
             <div>
               <h3 className="font-display text-lg font-bold text-foreground">

@@ -202,7 +202,7 @@ export default function MembersPage() {
         {filteredMembers.map(m => {
           const stats = getMemberStats(m.id);
           return (
-            <div key={m.id} className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md">
+            <div key={m.id} className="item-card">
               {editId === m.id ? (
                 renderFormFields(handleSave)
               ) : (

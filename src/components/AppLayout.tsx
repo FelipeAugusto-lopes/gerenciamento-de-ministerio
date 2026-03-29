@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="container py-6">{children}</main>
+      <main className="container py-8 px-4 sm:px-6">{children}</main>
     </div>
   );
 }
