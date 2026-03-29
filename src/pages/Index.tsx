@@ -155,10 +155,10 @@ export default function IndexPage() {
   }, [selectedSchedules]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Calendário de Escalas</h1>
-        <p className="text-sm text-muted-foreground">Selecione uma data para ver ou criar escalas</p>
+        <h1 className="page-title">Calendário de Escalas</h1>
+        <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
       </div>
 
       {/* Calendar */}
