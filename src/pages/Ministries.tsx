@@ -41,19 +41,19 @@ export default function MinistriesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {savedFeedback && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> Salvo com sucesso!
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Ministérios</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os ministérios da igreja</p>
+          <h1 className="page-title">Ministérios</h1>
+          <p className="page-subtitle">Gerencie os ministérios da igreja</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base">
+        <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base shadow-md hover:shadow-lg transition-shadow">
           <Plus className="h-5 w-5" /> Novo Ministério
         </Button>
       </div>
