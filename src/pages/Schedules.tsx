@@ -293,7 +293,7 @@ export default function SchedulesPage() {
       )}
 
       {showFilters && (
-        <div className="rounded-lg border bg-card p-4 animate-fade-in space-y-4">
+        <div className="content-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
