@@ -41,25 +41,25 @@ export default function MinistriesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {savedFeedback && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> Salvo com sucesso!
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Ministérios</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os ministérios da igreja</p>
+          <h1 className="page-title">Ministérios</h1>
+          <p className="page-subtitle">Gerencie os ministérios da igreja</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base">
+        <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-6 text-base shadow-md hover:shadow-lg transition-shadow">
           <Plus className="h-5 w-5" /> Novo Ministério
         </Button>
       </div>
 
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
+        <div className="content-card p-5 space-y-4 animate-fade-in">
           <Input placeholder="Nome do ministério" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} className="h-12 text-base" />
           <div className="flex flex-wrap gap-2">
             {MINISTRY_COLORS.map((c, i) => (
@@ -75,7 +75,7 @@ export default function MinistriesPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {ministries.map(m => (
-          <div key={m.id} className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md" style={{ borderLeftWidth: 4, borderLeftColor: `hsl(${MINISTRY_COLORS[m.colorIndex % MINISTRY_COLORS.length]})` }}>
+          <div key={m.id} className="item-card" style={{ borderLeftWidth: 4, borderLeftColor: `hsl(${MINISTRY_COLORS[m.colorIndex % MINISTRY_COLORS.length]})` }}>
             {editId === m.id ? (
               <div className="space-y-3">
                 <Input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSave()} className="h-12 text-base" />

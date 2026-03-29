@@ -122,19 +122,19 @@ export default function MembersPage() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {savedFeedback && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> Salvo com sucesso!
         </div>
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Membros</h1>
-          <p className="text-sm text-muted-foreground">{members.length} membro{members.length !== 1 ? "s" : ""}</p>
+          <h1 className="page-title">Membros</h1>
+          <p className="page-subtitle">{members.length} membro{members.length !== 1 ? "s" : ""} cadastrado{members.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 h-12 px-6 text-base">
+        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 h-12 px-6 text-base shadow-md hover:shadow-lg transition-shadow">
           <Plus className="h-5 w-5" /> Novo Membro
         </Button>
       </div>
@@ -145,7 +145,7 @@ export default function MembersPage() {
       </div>
 
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 animate-fade-in">
+        <div className="content-card p-5 animate-fade-in">
           {renderFormFields(handleAdd)}
         </div>
       )}
@@ -202,7 +202,7 @@ export default function MembersPage() {
         {filteredMembers.map(m => {
           const stats = getMemberStats(m.id);
           return (
-            <div key={m.id} className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md">
+            <div key={m.id} className="item-card">
               {editId === m.id ? (
                 renderFormFields(handleSave)
               ) : (

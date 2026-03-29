@@ -4,23 +4,23 @@
 
 @layer base {
   :root {
-    --background: 40 33% 96%;
-    --foreground: 150 25% 12%;
+    --background: 40 25% 94%;
+    --foreground: 150 30% 10%;
 
-    --card: 40 30% 98%;
-    --card-foreground: 150 25% 12%;
+    --card: 40 30% 99%;
+    --card-foreground: 150 30% 10%;
 
-    --popover: 40 30% 98%;
-    --popover-foreground: 150 25% 12%;
+    --popover: 40 30% 99%;
+    --popover-foreground: 150 30% 10%;
 
     --primary: 152 45% 28%;
     --primary-foreground: 40 30% 98%;
 
-    --secondary: 40 45% 90%;
+    --secondary: 40 40% 92%;
     --secondary-foreground: 150 25% 18%;
 
-    --muted: 40 20% 92%;
-    --muted-foreground: 150 10% 45%;
+    --muted: 40 18% 90%;
+    --muted-foreground: 150 8% 52%;
 
     --accent: 38 80% 55%;
     --accent-foreground: 150 25% 12%;
@@ -28,9 +28,12 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 20% 88%;
-    --input: 40 20% 88%;
+    --border: 40 15% 85%;
+    --input: 40 15% 85%;
     --ring: 152 45% 28%;
+
+    --shadow-card: 0 1px 3px 0 hsl(150 10% 30% / 0.06), 0 1px 2px -1px hsl(150 10% 30% / 0.06);
+    --shadow-card-hover: 0 4px 12px -2px hsl(150 10% 30% / 0.1), 0 2px 4px -2px hsl(150 10% 30% / 0.06);
 
     --radius: 0.75rem;
 
@@ -92,5 +95,32 @@
 @layer utilities {
   .ministry-badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .page-title {
+    @apply font-display text-3xl font-bold tracking-tight text-foreground;
+  }
+  .page-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+  .stat-card {
+    @apply rounded-xl border p-4 text-center transition-shadow;
+    box-shadow: var(--shadow-card);
+  }
+  .stat-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .content-card {
+    @apply rounded-xl border bg-card overflow-hidden;
+    box-shadow: var(--shadow-card);
+  }
+  .content-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .item-card {
+    @apply rounded-xl border bg-card p-4 transition-all;
+    box-shadow: var(--shadow-card);
+  }
+  .item-card:hover {
+    box-shadow: var(--shadow-card-hover);
   }
 }

@@ -155,14 +155,14 @@ export default function IndexPage() {
   }, [selectedSchedules]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Calendário de Escalas</h1>
-        <p className="text-sm text-muted-foreground">Selecione uma data para ver ou criar escalas</p>
+        <h1 className="page-title">Calendário de Escalas</h1>
+        <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
       </div>
 
       {/* Calendar */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="content-card">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <Button variant="ghost" size="icon" onClick={prevMonth}>
             <ChevronLeft className="h-5 w-5" />
@@ -232,7 +232,7 @@ export default function IndexPage() {
 
       {/* Selected date detail — table view matching reference */}
       {selectedDate && (
-        <div className="rounded-lg border bg-card overflow-hidden animate-fade-in">
+        <div className="content-card animate-fade-in">
           <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/30">
             <div>
               <h3 className="font-display text-lg font-bold text-foreground">

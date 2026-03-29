@@ -225,17 +225,17 @@ export default function SchedulesPage() {
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {savedFeedback && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
         </div>
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Escalas</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
+          <h1 className="page-title">Escalas</h1>
+          <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""} encontrada{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-12 px-4 text-base relative">
@@ -253,35 +253,47 @@ export default function SchedulesPage() {
           <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-12 px-5 text-base">
             <Wand2 className="h-5 w-5" /> Gerar Escala
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base">
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base shadow-md hover:shadow-lg transition-shadow">
             <Plus className="h-5 w-5" /> Nova
           </Button>
         </div>
       </div>
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-accent/10 p-3 text-center">
-            <p className="text-2xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Pendentes</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="stat-card bg-accent/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Clock className="h-5 w-5 text-accent" />
+            </div>
+            <p className="text-3xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
+            <p className="text-xs text-muted-foreground mt-1">Pendentes</p>
           </div>
-          <div className="rounded-lg border bg-primary/10 p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{statusSummary.Confirmado}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Confirmados</p>
+          <div className="stat-card bg-primary/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            </div>
+            <p className="text-3xl font-bold text-primary">{statusSummary.Confirmado}</p>
+            <p className="text-xs text-muted-foreground mt-1">Confirmados</p>
           </div>
-          <div className="rounded-lg border bg-destructive/10 p-3 text-center">
-            <p className="text-2xl font-bold text-destructive">{statusSummary.Recusado}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><XCircle className="h-3 w-3" /> Recusados</p>
+          <div className="stat-card bg-destructive/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <XCircle className="h-5 w-5 text-destructive" />
+            </div>
+            <p className="text-3xl font-bold text-destructive">{statusSummary.Recusado}</p>
+            <p className="text-xs text-muted-foreground mt-1">Recusados</p>
           </div>
-          <div className="rounded-lg border bg-muted p-3 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Concluídos</p>
+          <div className="stat-card bg-muted/60">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-3xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
+            <p className="text-xs text-muted-foreground mt-1">Concluídos</p>
           </div>
         </div>
       )}
 
       {showFilters && (
-        <div className="rounded-lg border bg-card p-4 animate-fade-in space-y-4">
+        <div className="content-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
@@ -319,7 +331,7 @@ export default function SchedulesPage() {
 
       {/* Add schedule form with multi-member selection */}
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
+        <div className="content-card p-5 space-y-4 animate-fade-in">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
@@ -563,7 +575,7 @@ export default function SchedulesPage() {
               const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
               return (
                 <div key={s.id} className={cn(
-                  "rounded-lg border bg-card p-4 space-y-2",
+                  "item-card space-y-2",
                   s.status === "Recusado" && "opacity-70"
                 )} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
                   <div className="flex items-center justify-between">
@@ -596,7 +608,7 @@ export default function SchedulesPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
+          <div className="hidden md:block content-card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
