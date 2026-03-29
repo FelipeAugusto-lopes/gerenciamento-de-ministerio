@@ -134,7 +134,7 @@ export default function MembersPage() {
           <h1 className="page-title">Membros</h1>
           <p className="page-subtitle">{members.length} membro{members.length !== 1 ? "s" : ""} cadastrado{members.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 h-12 px-6 text-base">
+        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 h-12 px-6 text-base shadow-md hover:shadow-lg transition-shadow">
           <Plus className="h-5 w-5" /> Novo Membro
         </Button>
       </div>

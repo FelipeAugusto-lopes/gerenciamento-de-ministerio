@@ -253,7 +253,7 @@ export default function SchedulesPage() {
           <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-12 px-5 text-base">
             <Wand2 className="h-5 w-5" /> Gerar Escala
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base">
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base shadow-md hover:shadow-lg transition-shadow">
             <Plus className="h-5 w-5" /> Nova
           </Button>
         </div>
