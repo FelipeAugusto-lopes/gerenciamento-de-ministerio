@@ -3,26 +3,23 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, Trash2, Filter, X, Calendar, AlertTriangle, Shield, Wand2, History, Search, CheckCircle2, Bell, Clock, BarChart3, XCircle, UserPlus } from "lucide-react";
+import {
+  Plus, Trash2, Filter, X, Calendar, AlertTriangle, Wand2, History, Search,
+  CheckCircle2, Bell, Clock, BarChart3, XCircle, UserPlus, Copy, Pencil, Check, Sun, Moon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-const statusColors: Record<ScheduleStatus, string> = {
-  Pendente: "bg-accent/20 text-accent-foreground border-accent/30",
-  Confirmado: "bg-primary/15 text-primary border-primary/30",
-  Recusado: "bg-destructive/15 text-destructive border-destructive/30",
-  Concluído: "bg-muted text-muted-foreground border-border",
-};
+const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
 
-const statusIcons: Record<ScheduleStatus, string> = {
-  Pendente: "⏳",
-  Confirmado: "✅",
-  Recusado: "❌",
-  Concluído: "✔️",
+const statusConfig: Record<ScheduleStatus, { icon: typeof Clock; color: string; bg: string; border: string; label: string }> = {
+  Pendente: { icon: Clock, color: "text-amber-600", bg: "bg-amber-500/15", border: "border-amber-400/40", label: "Pendente" },
+  Confirmado: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-500/15", border: "border-emerald-400/40", label: "Confirmado" },
+  Recusado: { icon: XCircle, color: "text-red-500", bg: "bg-red-500/12", border: "border-red-400/40", label: "Recusado" },
+  Concluído: { icon: Check, color: "text-muted-foreground", bg: "bg-muted/60", border: "border-border", label: "Concluído" },
 };
 
 export default function SchedulesPage() {
@@ -33,9 +30,8 @@ export default function SchedulesPage() {
   const [filterDate, setFilterDate] = useState("");
   const [filterMinistry, setFilterMinistry] = useState("all");
   const [filterShift, setFilterShift] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [blockSameDay, setBlockSameDay] = useState(true);
-  const [blockSameShift, setBlockSameShift] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   const [genDate, setGenDate] = useState(() => {
     const d = new Date();
@@ -49,6 +45,10 @@ export default function SchedulesPage() {
   const [savedFeedback, setSavedFeedback] = useState("");
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
+  const [duplicateSchedule, setDuplicateSchedule] = useState<typeof schedules[0] | null>(null);
+  const [duplicateDate, setDuplicateDate] = useState("");
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
@@ -76,14 +76,35 @@ export default function SchedulesPage() {
     });
   };
 
-
   const filtered = useMemo(() => {
     return schedules
       .filter(s => !filterDate || s.date === filterDate)
       .filter(s => filterMinistry === "all" || s.ministryId === filterMinistry)
       .filter(s => filterShift === "all" || s.shift === filterShift)
+      .filter(s => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const ministry = ministries.find(m => m.id === s.ministryId);
+        const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "").join(" ");
+        return (
+          (ministry?.name || "").toLowerCase().includes(q) ||
+          memberNames.toLowerCase().includes(q)
+        );
+      })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [schedules, filterDate, filterMinistry, filterShift]);
+  }, [schedules, filterDate, filterMinistry, filterShift, searchQuery, ministries, members]);
+
+  // Group by date then shift
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, { manhã: typeof filtered; noite: typeof filtered }>();
+    filtered.forEach(s => {
+      if (!map.has(s.date)) map.set(s.date, { manhã: [], noite: [] });
+      const group = map.get(s.date)!;
+      if (s.shift === "Manhã") group.manhã.push(s);
+      else group.noite.push(s);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filtered]);
 
   const statusSummary = useMemo(() => {
     const counts = { Pendente: 0, Confirmado: 0, Recusado: 0, Concluído: 0 };
@@ -95,16 +116,28 @@ export default function SchedulesPage() {
     return newForm.ministryId ? members.filter(m => m.ministryIds.includes(newForm.ministryId)) : members;
   }, [newForm.ministryId, members]);
 
-  // Conflict detection: find members already scheduled on the selected date
-  const getMemberConflict = (memberId: string): { ministryName: string; shift: string } | null => {
-    if (!newForm.date) return null;
+  const getMemberConflict = (memberId: string, date: string, excludeScheduleId?: string): { ministryName: string; shift: string } | null => {
+    if (!date) return null;
     for (const s of schedules) {
-      if (s.date === newForm.date && s.memberIds.includes(memberId)) {
+      if (s.date === date && s.memberIds.includes(memberId) && s.id !== excludeScheduleId) {
         const min = ministries.find(m => m.id === s.ministryId);
         return { ministryName: min?.name || "?", shift: s.shift };
       }
     }
     return null;
+  };
+
+  // Check if any member in a schedule has a conflict with another schedule on the same day
+  const getScheduleConflicts = (s: typeof schedules[0]) => {
+    const conflicts: { memberId: string; memberName: string; otherMinistry: string; otherShift: string }[] = [];
+    s.memberIds.forEach(mid => {
+      const conflict = getMemberConflict(mid, s.date, s.id);
+      if (conflict) {
+        const member = members.find(m => m.id === mid);
+        conflicts.push({ memberId: mid, memberName: member?.name || "?", otherMinistry: conflict.ministryName, otherShift: conflict.shift });
+      }
+    });
+    return conflicts;
   };
 
   const toggleMember = (memberId: string) => {
@@ -201,6 +234,44 @@ export default function SchedulesPage() {
     showSaved();
   };
 
+  const handleDuplicate = () => {
+    if (!duplicateSchedule || !duplicateDate) return;
+    addSchedule({
+      ministryId: duplicateSchedule.ministryId,
+      date: duplicateDate,
+      shift: duplicateSchedule.shift,
+      memberIds: [...duplicateSchedule.memberIds],
+      status: "Pendente",
+    });
+    const ministry = ministries.find(m => m.id === duplicateSchedule.ministryId);
+    addEntry("Duplicou escala", `${ministry?.name} para ${formatDate(duplicateDate)} (${duplicateSchedule.shift})`);
+    setDuplicateSchedule(null);
+    setDuplicateDate("");
+    showSaved("Escala duplicada com sucesso!");
+  };
+
+  const startEditMembers = (s: typeof schedules[0]) => {
+    setEditingScheduleId(s.id);
+    setEditMemberIds([...s.memberIds]);
+  };
+
+  const saveEditMembers = (s: typeof schedules[0]) => {
+    if (editMemberIds.length === 0) return;
+    updateSchedule({ ...s, memberIds: editMemberIds });
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const names = editMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
+    addEntry("Editou membros da escala", `${ministry?.name} — ${formatDate(s.date)}: ${names}`);
+    setEditingScheduleId(null);
+    setEditMemberIds([]);
+    showSaved();
+  };
+
+  const toggleEditMember = (memberId: string) => {
+    setEditMemberIds(prev =>
+      prev.includes(memberId) ? prev.filter(id => id !== memberId) : [...prev, memberId]
+    );
+  };
+
   const memberHistory = useMemo(() => {
     if (!historyMemberId) return [];
     return schedules.filter(s => s.memberIds.includes(historyMemberId)).sort((a, b) => b.date.localeCompare(a.date));
@@ -220,89 +291,239 @@ export default function SchedulesPage() {
     };
   }, [historyMemberId, schedules]);
 
-  const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0);
-
+  const activeFilters = (filterDate ? 1 : 0) + (filterMinistry !== "all" ? 1 : 0) + (filterShift !== "all" ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
+  // Status toggle button component
+  const StatusToggle = ({ schedule }: { schedule: typeof schedules[0] }) => {
+    const cfg = statusConfig[schedule.status];
+    const Icon = cfg.icon;
+    return (
+      <div className="flex gap-1">
+        {STATUS_LIST.map(st => {
+          const c = statusConfig[st];
+          const StIcon = c.icon;
+          const isActive = schedule.status === st;
+          return (
+            <button
+              key={st}
+              onClick={() => !isActive && handleStatusChange(schedule, st)}
+              title={c.label}
+              className={cn(
+                "rounded-lg p-1.5 transition-all border",
+                isActive ? `${c.bg} ${c.border} ${c.color} shadow-sm` : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50"
+              )}
+            >
+              <StIcon className="h-4 w-4" />
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render a single schedule card
+  const ScheduleCard = ({ s }: { s: typeof schedules[0] }) => {
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+    const conflicts = getScheduleConflicts(s);
+    const isEditing = editingScheduleId === s.id;
+    const editableMembers = ministry ? members.filter(m => m.ministryIds.includes(s.ministryId)) : members;
+    const cfg = statusConfig[s.status];
+
+    return (
+      <div
+        className={cn(
+          "item-card space-y-3 relative group",
+          s.status === "Recusado" && "opacity-70",
+          conflicts.length > 0 && "ring-2 ring-red-400/50"
+        )}
+        style={{
+          borderLeftWidth: 4,
+          borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined,
+        }}
+      >
+        {/* Conflict banner */}
+        {conflicts.length > 0 && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-400/30 p-2 text-xs text-red-600">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Conflito de escala!</p>
+              {conflicts.map(c => (
+                <p key={c.memberId}>{c.memberName} já está em {c.otherMinistry} ({c.otherShift})</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>
+            {ministry?.name || "?"}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => startEditMembers(s)}
+              title="Editar pessoas"
+              className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => { setDuplicateSchedule(s); setDuplicateDate(""); }}
+              title="Duplicar escala"
+              className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => handleDelete(s.id)}
+              title="Excluir"
+              className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Members - inline edit mode */}
+        {isEditing ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Selecione os membros:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {editableMembers.map(m => {
+                const selected = editMemberIds.includes(m.id);
+                const conflict = getMemberConflict(m.id, s.date, s.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => !conflict && toggleEditMember(m.id)}
+                    disabled={!!conflict}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-xs font-medium border transition-all",
+                      selected ? "bg-primary/15 text-primary border-primary/30" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted",
+                      conflict && "opacity-40 cursor-not-allowed line-through"
+                    )}
+                    title={conflict ? `Já em ${conflict.ministryName} (${conflict.shift})` : m.name}
+                  >
+                    {m.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" className="h-8 text-xs" onClick={() => saveEditMembers(s)} disabled={editMemberIds.length === 0}>
+                <Check className="h-3.5 w-3.5 mr-1" /> Salvar
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingScheduleId(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {memberNames.map((name, i) => (
+              <button
+                key={s.memberIds[i]}
+                onClick={() => setHistoryMemberId(s.memberIds[i])}
+                className="rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Status toggle */}
+        <StatusToggle schedule={s} />
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {savedFeedback && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
         </div>
       )}
 
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="page-title">Escalas</h1>
-          <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""} encontrada{filtered.length !== 1 ? "s" : ""}</p>
+          <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-12 px-4 text-base relative">
+          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-11 px-3 relative">
             <Bell className="h-5 w-5" />
             {unreadNotifications > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground font-bold">{unreadNotifications}</span>
             )}
           </Button>
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-12 px-5 text-base relative">
-            <Filter className="h-5 w-5" /> Filtros
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-11 px-4 relative">
+            <Filter className="h-4 w-4" /> Filtros
             {activeFilters > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">{activeFilters}</span>
             )}
           </Button>
-          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-12 px-5 text-base">
-            <Wand2 className="h-5 w-5" /> Gerar Escala
+          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-11 px-4">
+            <Wand2 className="h-4 w-4" /> Gerar
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-12 px-5 text-base shadow-md hover:shadow-lg transition-shadow">
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-11 px-5 shadow-md hover:shadow-lg transition-shadow">
             <Plus className="h-5 w-5" /> Nova
           </Button>
         </div>
       </div>
 
+      {/* Search bar - always visible */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por membro ou ministério..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-10 h-11"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Stat cards */}
       {filtered.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="stat-card bg-accent/8">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Clock className="h-5 w-5 text-accent" />
-            </div>
-            <p className="text-3xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
-            <p className="text-xs text-muted-foreground mt-1">Pendentes</p>
-          </div>
-          <div className="stat-card bg-primary/8">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-            </div>
-            <p className="text-3xl font-bold text-primary">{statusSummary.Confirmado}</p>
-            <p className="text-xs text-muted-foreground mt-1">Confirmados</p>
-          </div>
-          <div className="stat-card bg-destructive/8">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <XCircle className="h-5 w-5 text-destructive" />
-            </div>
-            <p className="text-3xl font-bold text-destructive">{statusSummary.Recusado}</p>
-            <p className="text-xs text-muted-foreground mt-1">Recusados</p>
-          </div>
-          <div className="stat-card bg-muted/60">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="text-3xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
-            <p className="text-xs text-muted-foreground mt-1">Concluídos</p>
-          </div>
+        <div className="grid grid-cols-4 gap-3">
+          {(["Pendente", "Confirmado", "Recusado", "Concluído"] as ScheduleStatus[]).map(st => {
+            const c = statusConfig[st];
+            const Icon = c.icon;
+            return (
+              <button
+                key={st}
+                onClick={() => { setFilterShift("all"); setFilterMinistry("all"); setFilterDate(""); setSearchQuery(""); }}
+                className={cn("stat-card", c.bg, "cursor-default")}
+              >
+                <Icon className={cn("h-5 w-5 mx-auto mb-1", c.color)} />
+                <p className={cn("text-2xl font-bold", c.color)}>{statusSummary[st]}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{c.label}</p>
+              </button>
+            );
+          })}
         </div>
       )}
 
+      {/* Filters */}
       {showFilters && (
         <div className="content-card p-4 animate-fade-in space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
-              <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="h-12 text-base" />
+              <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="h-11" />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
               <Select value={filterMinistry} onValueChange={setFilterMinistry}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -312,7 +533,7 @@ export default function SchedulesPage() {
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
               <Select value={filterShift} onValueChange={setFilterShift}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="Manhã">Manhã</SelectItem>
@@ -322,21 +543,21 @@ export default function SchedulesPage() {
             </div>
           </div>
           {activeFilters > 0 && (
-            <Button variant="ghost" size="sm" className="text-sm" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); }}>
-              <X className="h-4 w-4 mr-1" /> Limpar filtros
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setFilterDate(""); setFilterMinistry("all"); setFilterShift("all"); setSearchQuery(""); }}>
+              <X className="h-3 w-3 mr-1" /> Limpar filtros
             </Button>
           )}
         </div>
       )}
 
-      {/* Add schedule form with multi-member selection */}
+      {/* Add schedule form */}
       {showAdd && (
         <div className="content-card p-5 space-y-4 animate-fade-in">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
               <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] }))}>
-                <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
@@ -344,12 +565,12 @@ export default function SchedulesPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
-              <Input type="date" value={newForm.date} onChange={e => setNewForm(f => ({ ...f, date: e.target.value }))} className="h-12 text-base" />
+              <Input type="date" value={newForm.date} onChange={e => setNewForm(f => ({ ...f, date: e.target.value }))} className="h-11" />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
               <Select value={newForm.shift} onValueChange={v => setNewForm(f => ({ ...f, shift: v as Shift }))}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Manhã">Manhã</SelectItem>
                   <SelectItem value="Noite">Noite</SelectItem>
@@ -383,15 +604,12 @@ export default function SchedulesPage() {
               ) : (
                 availableMembers.map(m => {
                   const isSelected = newForm.selectedMemberIds.includes(m.id);
-                  const conflict = getMemberConflict(m.id);
+                  const conflict = getMemberConflict(m.id, newForm.date);
                   const hasConflict = !!conflict && !isSelected;
                   return (
                     <button
                       key={m.id}
-                      onClick={() => {
-                        if (hasConflict) return;
-                        toggleMember(m.id);
-                      }}
+                      onClick={() => { if (!hasConflict) toggleMember(m.id); }}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors",
                         isSelected && "bg-primary/5",
@@ -419,11 +637,11 @@ export default function SchedulesPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button className="h-12 px-6 text-base" onClick={handleAdd} disabled={newForm.selectedMemberIds.length === 0 || !newForm.ministryId}>
-              <UserPlus className="h-5 w-5 mr-2" />
+            <Button className="h-11 px-6" onClick={handleAdd} disabled={newForm.selectedMemberIds.length === 0 || !newForm.ministryId}>
+              <UserPlus className="h-4 w-4 mr-2" />
               Adicionar {newForm.selectedMemberIds.length > 0 ? `${newForm.selectedMemberIds.length} pessoa${newForm.selectedMemberIds.length > 1 ? "s" : ""}` : ""}
             </Button>
-            <Button className="h-12 px-6 text-base" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
+            <Button variant="outline" className="h-11" onClick={() => setShowAdd(false)}>Cancelar</Button>
           </div>
         </div>
       )}
@@ -447,12 +665,12 @@ export default function SchedulesPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Data</label>
-              <Input type="date" value={genDate} onChange={e => setGenDate(e.target.value)} className="h-12 text-base" />
+              <Input type="date" value={genDate} onChange={e => setGenDate(e.target.value)} className="h-11" />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
               <Select value={genShift} onValueChange={v => setGenShift(v as Shift)}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Manhã">Manhã</SelectItem>
                   <SelectItem value="Noite">Noite</SelectItem>
@@ -462,15 +680,38 @@ export default function SchedulesPage() {
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
               <Select value={genMinistry} onValueChange={setGenMinistry}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os ministérios</SelectItem>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full h-12 text-base gap-2" onClick={handleGenerate}>
-              <Wand2 className="h-5 w-5" /> Gerar Escala
+            <Button className="w-full h-11 gap-2" onClick={handleGenerate}>
+              <Wand2 className="h-4 w-4" /> Gerar Escala
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate dialog */}
+      <Dialog open={!!duplicateSchedule} onOpenChange={() => setDuplicateSchedule(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-5 w-5 text-primary" /> Duplicar Escala
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Escolha a nova data para duplicar esta escala com os mesmos membros.
+            </p>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Nova data</label>
+              <Input type="date" value={duplicateDate} onChange={e => setDuplicateDate(e.target.value)} className="h-11" />
+            </div>
+            <Button className="w-full h-11 gap-2" onClick={handleDuplicate} disabled={!duplicateDate}>
+              <Copy className="h-4 w-4" /> Duplicar
             </Button>
           </div>
         </DialogContent>
@@ -542,6 +783,8 @@ export default function SchedulesPage() {
             <div className="space-y-2 pt-2">
               {memberHistory.map(s => {
                 const ministry = ministries.find(m => m.id === s.ministryId);
+                const cfg = statusConfig[s.status];
+                const Icon = cfg.icon;
                 return (
                   <div key={s.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
                     <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
@@ -549,8 +792,8 @@ export default function SchedulesPage() {
                       <span className="text-foreground">{formatDate(s.date)}</span>
                       <span className="text-muted-foreground ml-2">{getDayOfWeek(s.date)} • {s.shift}</span>
                     </div>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full border", statusColors[s.status])}>
-                      {statusIcons[s.status]} {s.status}
+                    <span className={cn("flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border", cfg.bg, cfg.border, cfg.color)}>
+                      <Icon className="h-3 w-3" /> {s.status}
                     </span>
                   </div>
                 );
@@ -560,115 +803,56 @@ export default function SchedulesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Schedule list */}
+      {/* Schedule list grouped by date & shift */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Calendar className="h-12 w-12 mb-3 opacity-40" />
           <p className="text-sm">Nenhuma escala encontrada</p>
         </div>
       ) : (
-        <>
-          {/* Mobile cards */}
-          <div className="grid gap-3 md:hidden">
-            {filtered.map(s => {
-              const ministry = ministries.find(m => m.id === s.ministryId);
-              const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
-              return (
-                <div key={s.id} className={cn(
-                  "item-card space-y-2",
-                  s.status === "Recusado" && "opacity-70"
-                )} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
-                  <div className="flex items-center justify-between">
-                    <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-base">{statusIcons[s.status]}</span>
-                      <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  </div>
-                  <p className="font-medium text-foreground text-sm">{memberNames.join(", ")}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{formatDate(s.date)}</span>
-                    <span>{getDayOfWeek(s.date)}</span>
-                    <span>{s.shift}</span>
-                  </div>
-                  <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                    <SelectTrigger className={cn("w-fit h-8 text-xs border", statusColors[s.status])}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                      <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                      <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                      <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                    </SelectContent>
-                  </Select>
+        <div className="space-y-6">
+          {groupedByDate.map(([date, groups]) => (
+            <div key={date} className="space-y-3">
+              {/* Date header */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-primary text-sm">{formatDate(date)}</span>
                 </div>
-              );
-            })}
-          </div>
+                <span className="text-xs text-muted-foreground">{getDayOfWeek(date)}</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
 
-          {/* Desktop table */}
-          <div className="hidden md:block content-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ministério</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Dia</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Turno</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Pessoas</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(s => {
-                  const ministry = ministries.find(m => m.id === s.ministryId);
-                  const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
-                  return (
-                    <tr key={s.id} className={cn(
-                      "border-b last:border-0 transition-colors hover:bg-muted/30",
-                      s.status === "Recusado" && "opacity-60"
-                    )}>
-                      <td className="px-4 py-3">
-                        <span className="ministry-badge border" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
-                      </td>
-                      <td className="px-4 py-3 text-foreground">{formatDate(s.date)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{getDayOfWeek(s.date)}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn(
-                          "text-xs font-medium px-2 py-1 rounded",
-                          s.shift === "Manhã" ? "bg-amber-500/15 text-amber-700" : "bg-indigo-500/15 text-indigo-700"
-                        )}>
-                          {s.shift}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-foreground font-medium">{memberNames.join(", ")}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                          <SelectTrigger className={cn("w-fit h-7 text-xs border", statusColors[s.status])}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                            <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                            <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                            <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
+              {/* Manhã section */}
+              {groups.manhã.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 ml-1">
+                    <Sun className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Manhã</span>
+                    <span className="text-[10px] text-muted-foreground">({groups.manhã.length})</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {groups.manhã.map(s => <ScheduleCard key={s.id} s={s} />)}
+                  </div>
+                </div>
+              )}
+
+              {/* Noite section */}
+              {groups.noite.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 ml-1">
+                    <Moon className="h-4 w-4 text-indigo-500" />
+                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Noite</span>
+                    <span className="text-[10px] text-muted-foreground">({groups.noite.length})</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {groups.noite.map(s => <ScheduleCard key={s.id} s={s} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
