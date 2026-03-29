@@ -162,7 +162,7 @@ export default function IndexPage() {
       </div>
 
       {/* Calendar */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="content-card">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <Button variant="ghost" size="icon" onClick={prevMonth}>
             <ChevronLeft className="h-5 w-5" />
