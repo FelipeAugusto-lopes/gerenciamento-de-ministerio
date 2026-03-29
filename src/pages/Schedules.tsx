@@ -575,7 +575,7 @@ export default function SchedulesPage() {
               const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
               return (
                 <div key={s.id} className={cn(
-                  "rounded-lg border bg-card p-4 space-y-2",
+                  "item-card space-y-2",
                   s.status === "Recusado" && "opacity-70"
                 )} style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length]})` : undefined }}>
                   <div className="flex items-center justify-between">
