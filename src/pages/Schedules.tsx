@@ -225,17 +225,17 @@ export default function SchedulesPage() {
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {savedFeedback && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
         </div>
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Escalas</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
+          <h1 className="page-title">Escalas</h1>
+          <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""} encontrada{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-12 px-4 text-base relative">
