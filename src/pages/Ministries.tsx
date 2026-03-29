@@ -59,7 +59,7 @@ export default function MinistriesPage() {
       </div>
 
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
+        <div className="content-card p-5 space-y-4 animate-fade-in">
           <Input placeholder="Nome do ministério" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} className="h-12 text-base" />
           <div className="flex flex-wrap gap-2">
             {MINISTRY_COLORS.map((c, i) => (
