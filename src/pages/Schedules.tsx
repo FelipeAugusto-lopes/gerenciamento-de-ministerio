@@ -331,7 +331,7 @@ export default function SchedulesPage() {
 
       {/* Add schedule form with multi-member selection */}
       {showAdd && (
-        <div className="rounded-lg border bg-card p-5 space-y-4 animate-fade-in">
+        <div className="content-card p-5 space-y-4 animate-fade-in">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
