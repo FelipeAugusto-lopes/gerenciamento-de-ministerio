@@ -260,22 +260,34 @@ export default function SchedulesPage() {
       </div>
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-accent/10 p-3 text-center">
-            <p className="text-2xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" /> Pendentes</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="stat-card bg-accent/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Clock className="h-5 w-5 text-accent" />
+            </div>
+            <p className="text-3xl font-bold text-accent-foreground">{statusSummary.Pendente}</p>
+            <p className="text-xs text-muted-foreground mt-1">Pendentes</p>
           </div>
-          <div className="rounded-lg border bg-primary/10 p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{statusSummary.Confirmado}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Confirmados</p>
+          <div className="stat-card bg-primary/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            </div>
+            <p className="text-3xl font-bold text-primary">{statusSummary.Confirmado}</p>
+            <p className="text-xs text-muted-foreground mt-1">Confirmados</p>
           </div>
-          <div className="rounded-lg border bg-destructive/10 p-3 text-center">
-            <p className="text-2xl font-bold text-destructive">{statusSummary.Recusado}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><XCircle className="h-3 w-3" /> Recusados</p>
+          <div className="stat-card bg-destructive/8">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <XCircle className="h-5 w-5 text-destructive" />
+            </div>
+            <p className="text-3xl font-bold text-destructive">{statusSummary.Recusado}</p>
+            <p className="text-xs text-muted-foreground mt-1">Recusados</p>
           </div>
-          <div className="rounded-lg border bg-muted p-3 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Concluídos</p>
+          <div className="stat-card bg-muted/60">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-3xl font-bold text-muted-foreground">{statusSummary.Concluído}</p>
+            <p className="text-xs text-muted-foreground mt-1">Concluídos</p>
           </div>
         </div>
       )}
