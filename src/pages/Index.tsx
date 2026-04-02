@@ -250,87 +250,157 @@ export default function IndexPage() {
         </div>
       </div>
 
-      {/* Selected date detail — table view matching reference */}
+      {/* Selected date detail — modern shift cards */}
       {selectedDate && (
-        <div className="content-card animate-fade-in">
-          <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/30">
-            <div>
-              <h3 className="font-display text-lg font-bold text-foreground">
-                {formatDate(selectedDate)} — {getDayOfWeek(selectedDate)}
-              </h3>
-              <p className="text-sm text-muted-foreground">{selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
-                <Share2 className="h-4 w-4" />
-              </Button>
-              <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
-                <Plus className="h-5 w-5" /> Nova Escala
-              </Button>
+        <div className="animate-fade-in space-y-4">
+          {/* Date header */}
+          <div className="content-card">
+            <div className="flex items-center justify-between px-5 py-4">
+              <div>
+                <h3 className="font-display text-xl font-bold text-foreground">
+                  {formatDate(selectedDate)}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
+                  <Share2 className="h-4 w-4" />
+                </Button>
+                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
+                  <Plus className="h-5 w-5" /> Nova Escala
+                </Button>
+              </div>
             </div>
           </div>
 
           {selectedSchedules.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-muted-foreground">
-              <Calendar className="h-10 w-10 mb-2 opacity-40" />
-              <p className="text-sm">Nenhuma escala nesta data.</p>
+            <div className="content-card flex flex-col items-center py-12 text-muted-foreground">
+              <Calendar className="h-12 w-12 mb-3 opacity-30" />
+              <p className="text-sm font-medium">Nenhuma escala nesta data.</p>
+              <p className="text-xs mt-1 opacity-60">Clique em "Nova Escala" para começar</p>
             </div>
           ) : (
-            <>
-              {groupedByShift.map(group => (
-                <div key={group.shift} className="border-b last:border-0">
-                  <div className={cn(
-                    "px-5 py-2 flex items-center gap-2 text-sm font-semibold",
-                    group.shift === "Manhã" ? "bg-amber-500/10 text-amber-700" : "bg-indigo-500/10 text-indigo-700"
-                  )}>
-                    <span>{group.shift === "Manhã" ? "☀️" : "🌙"}</span>
-                    <span>Turno {group.shift}</span>
-                    <span className="text-xs font-normal opacity-70">({group.schedules.length} escala{group.schedules.length !== 1 ? "s" : ""})</span>
-                  </div>
-                  <div className="divide-y">
-                    {group.schedules.map(s => {
-                      const ministry = ministries.find(m => m.id === s.ministryId);
-                      const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
-                      const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
-                      return (
-                        <div
-                          key={s.id}
-                          className={cn(
-                            "flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/30",
-                            s.status === "Recusado" && "opacity-60"
-                          )}
-                          style={{ borderLeftWidth: 4, borderLeftColor: ministry ? `hsl(${color})` : undefined }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="ministry-badge border text-xs" style={ministry ? getMinistryStyle(ministry.colorIndex) : {}}>{ministry?.name || "?"}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {groupedByShift.map(group => {
+                const isManha = group.shift === "Manhã";
+                return (
+                  <div
+                    key={group.shift}
+                    className={cn(
+                      "rounded-xl border-2 overflow-hidden shadow-sm",
+                      isManha
+                        ? "border-amber-200 bg-gradient-to-b from-amber-50/80 to-white dark:from-amber-950/20 dark:to-card dark:border-amber-900/40"
+                        : "border-indigo-200 bg-gradient-to-b from-indigo-50/80 to-white dark:from-indigo-950/20 dark:to-card dark:border-indigo-900/40"
+                    )}
+                  >
+                    {/* Shift header */}
+                    <div className={cn(
+                      "px-5 py-4 flex items-center gap-3",
+                      isManha
+                        ? "bg-amber-100/60 dark:bg-amber-900/20"
+                        : "bg-indigo-100/60 dark:bg-indigo-900/20"
+                    )}>
+                      <div className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center text-lg",
+                        isManha
+                          ? "bg-amber-200 dark:bg-amber-800/40"
+                          : "bg-indigo-200 dark:bg-indigo-800/40"
+                      )}>
+                        {isManha ? "☀️" : "🌙"}
+                      </div>
+                      <div>
+                        <h4 className={cn(
+                          "font-display text-base font-bold",
+                          isManha ? "text-amber-800 dark:text-amber-300" : "text-indigo-800 dark:text-indigo-300"
+                        )}>
+                          Turno da {group.shift}
+                        </h4>
+                        <p className={cn(
+                          "text-xs",
+                          isManha ? "text-amber-600/70 dark:text-amber-400/60" : "text-indigo-600/70 dark:text-indigo-400/60"
+                        )}>
+                          {group.schedules.length} ministério{group.schedules.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Schedule items */}
+                    <div className="divide-y divide-border/50 p-2 space-y-1">
+                      {group.schedules.map(s => {
+                        const ministry = ministries.find(m => m.id === s.ministryId);
+                        const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+                        const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
+                        const statusColor = s.status === "Confirmado"
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+                          : s.status === "Recusado"
+                          ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
+                          : s.status === "Concluído"
+                          ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                          : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              "rounded-lg bg-white dark:bg-card p-3 transition-all hover:shadow-md",
+                              s.status === "Recusado" && "opacity-50"
+                            )}
+                            style={{ borderLeft: `4px solid hsl(${color})` }}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span
+                                    className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold"
+                                    style={ministry ? {
+                                      backgroundColor: `hsl(${color} / 0.15)`,
+                                      color: `hsl(${color})`,
+                                      border: `1px solid hsl(${color} / 0.3)`,
+                                    } : {}}
+                                  >
+                                    {ministry?.name || "?"}
+                                  </span>
+                                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border", statusColor)}>
+                                    {statusIcons[s.status]} {s.status}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {memberNames.map((name, idx) => (
+                                    <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                                      {name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
+                                  <SelectTrigger className="w-fit h-7 text-[10px] border-dashed">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Pendente">⏳ Pendente</SelectItem>
+                                    <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
+                                    <SelectItem value="Recusado">❌ Recusado</SelectItem>
+                                    <SelectItem value="Concluído">✔️ Concluído</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <button onClick={() => handleDelete(s.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <p className="text-sm font-medium text-foreground">{memberNames.join(", ")}</p>
                           </div>
-                          <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                            <SelectTrigger className="w-fit h-7 text-xs shrink-0">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                              <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                              <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                              <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground hover:text-destructive shrink-0">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
