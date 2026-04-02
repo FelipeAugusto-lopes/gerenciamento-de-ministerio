@@ -94,7 +94,19 @@ export default function SchedulesPage() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [schedules, filterDate, filterMinistry, filterShift, searchQuery, ministries, members]);
 
-  // Group by date then shift
+  // Fixed ministry display order
+  const MINISTRY_ORDER = [
+    "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
+    "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
+  ];
+
+  const getMinistryOrder = (ministryId: string) => {
+    const name = ministries.find(m => m.id === ministryId)?.name || "";
+    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === name.toLowerCase());
+    return idx === -1 ? MINISTRY_ORDER.length : idx;
+  };
+
+  // Group by date then shift, sorted by ministry order
   const groupedByDate = useMemo(() => {
     const map = new Map<string, { manhã: typeof filtered; noite: typeof filtered }>();
     filtered.forEach(s => {
@@ -103,8 +115,13 @@ export default function SchedulesPage() {
       if (s.shift === "Manhã") group.manhã.push(s);
       else group.noite.push(s);
     });
+    // Sort each shift group by ministry order
+    map.forEach(group => {
+      group.manhã.sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId));
+      group.noite.sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId));
+    });
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [filtered]);
+  }, [filtered, ministries]);
 
   const statusSummary = useMemo(() => {
     const counts = { Pendente: 0, Confirmado: 0, Recusado: 0, Concluído: 0 };
