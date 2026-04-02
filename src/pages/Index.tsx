@@ -13,6 +13,11 @@ import { cn } from "@/lib/utils";
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+const MINISTRY_ORDER = [
+  "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
+  "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
+];
+
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -145,14 +150,23 @@ export default function IndexPage() {
 
   const todayStr = today.toISOString().split("T")[0];
 
+  const getMinistryOrder = (ministryId: string) => {
+    const min = ministries.find(m => m.id === ministryId);
+    if (!min) return 999;
+    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === min.name.toLowerCase());
+    return idx === -1 ? 999 : idx;
+  };
+
   // Group selected schedules by shift for the table view
   const groupedByShift = useMemo(() => {
     const shifts = ["Manhã", "Noite"] as Shift[];
     return shifts.map(shift => ({
       shift,
-      schedules: selectedSchedules.filter(s => s.shift === shift),
+      schedules: selectedSchedules
+        .filter(s => s.shift === shift)
+        .sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId)),
     })).filter(g => g.schedules.length > 0);
-  }, [selectedSchedules]);
+  }, [selectedSchedules, ministries]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -187,7 +201,13 @@ export default function IndexPage() {
             const daySchedules = schedulesByDate.get(ds) || [];
             const isToday = ds === todayStr;
             const isSelected = ds === selectedDate;
-            const uniqueMinistries = [...new Set(daySchedules.map(s => s.ministryId))];
+            const uniqueMinistries = [...new Set(daySchedules.map(s => s.ministryId))].sort((a, b) => {
+              const minA = ministries.find(m => m.id === a);
+              const minB = ministries.find(m => m.id === b);
+              const idxA = minA ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minA.name.toLowerCase()) : 999;
+              const idxB = minB ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minB.name.toLowerCase()) : 999;
+              return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            });
 
             return (
               <button
