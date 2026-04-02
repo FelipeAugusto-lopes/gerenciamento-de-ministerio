@@ -150,14 +150,23 @@ export default function IndexPage() {
 
   const todayStr = today.toISOString().split("T")[0];
 
+  const getMinistryOrder = (ministryId: string) => {
+    const min = ministries.find(m => m.id === ministryId);
+    if (!min) return 999;
+    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === min.name.toLowerCase());
+    return idx === -1 ? 999 : idx;
+  };
+
   // Group selected schedules by shift for the table view
   const groupedByShift = useMemo(() => {
     const shifts = ["Manhã", "Noite"] as Shift[];
     return shifts.map(shift => ({
       shift,
-      schedules: selectedSchedules.filter(s => s.shift === shift),
+      schedules: selectedSchedules
+        .filter(s => s.shift === shift)
+        .sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId)),
     })).filter(g => g.schedules.length > 0);
-  }, [selectedSchedules]);
+  }, [selectedSchedules, ministries]);
 
   return (
     <div className="space-y-8 animate-fade-in">
