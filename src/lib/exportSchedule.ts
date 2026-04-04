@@ -136,28 +136,27 @@ export function exportToPDF(data: ExportData, date: string) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Escala - ${formatDate(date)}</title>
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;background:#ffffff;color:#1e293b;padding:28px;}
+      body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;background:#ffffff;color:#1e293b;padding:20px;}
       @media print{
-        body{padding:16px;}
-        @page{size:A4 landscape;margin:12mm;}
+        body{padding:10px;}
+        @page{size:A4 landscape;margin:8mm;}
       }
     </style></head><body>
-    <div style="text-align:center;margin-bottom:20px;">
-      <h1 style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">📋 INA Escalas</h1>
-      <div style="margin-top:6px;">
-        <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:4px 14px;font-size:13px;font-weight:600;color:#475569;">
+    <div style="text-align:center;margin-bottom:14px;">
+      <h1 style="font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">📋 INA Escalas</h1>
+      <div style="margin-top:4px;">
+        <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 16px;font-size:16px;font-weight:600;color:#475569;">
           📅 ${formatDate(date)} — ${getDayOfWeek(date)}
         </span>
       </div>
-      <p style="margin-top:6px;font-size:11px;color:#94a3b8;">${daySchedules.length} escala${daySchedules.length !== 1 ? "s" : ""} nesta data</p>
     </div>
 
     ${daySchedules.length === 0
-      ? '<p style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">Nenhuma escala nesta data.</p>'
-      : `<div style="display:flex;gap:16px;align-items:flex-start;">${manhaCol}${noiteCol}</div>`
+      ? '<p style="text-align:center;padding:40px;color:#94a3b8;font-size:16px;">Nenhuma escala nesta data.</p>'
+      : `<div style="display:flex;gap:12px;align-items:flex-start;">${manhaCol}${noiteCol}</div>`
     }
 
-    <div style="margin-top:20px;text-align:center;font-size:10px;color:#cbd5e1;border-top:1px solid #f1f5f9;padding-top:10px;">
+    <div style="margin-top:14px;text-align:center;font-size:11px;color:#cbd5e1;border-top:1px solid #f1f5f9;padding-top:8px;">
       INA Escalas · Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
     </div>
     </body></html>`;
