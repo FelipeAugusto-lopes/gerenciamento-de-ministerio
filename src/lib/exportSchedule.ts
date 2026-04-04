@@ -7,62 +7,52 @@ interface ExportData {
   ministries: Ministry[];
 }
 
-function getWeekRange(date: string): { start: Date; end: Date; label: string } {
-  const d = new Date(date + "T12:00:00");
-  const day = d.getDay();
-  const start = new Date(d);
-  start.setDate(d.getDate() - day);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const fmt = (dt: Date) => dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  return { start, end, label: `${fmt(start)} a ${fmt(end)}` };
+const MINISTRY_ORDER = [
+  "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
+  "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
+];
+
+function getMinistryOrder(name: string): number {
+  const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === name.toLowerCase());
+  return idx >= 0 ? idx : 999;
 }
 
-function getWeekSchedules(schedules: Schedule[], date: string) {
-  const { start, end } = getWeekRange(date);
-  return schedules.filter(s => {
-    const d = new Date(s.date + "T12:00:00");
-    return d >= start && d <= end;
-  }).sort((a, b) => a.date.localeCompare(b.date) || a.shift.localeCompare(b.shift));
+function getDaySchedules(schedules: Schedule[], date: string) {
+  return schedules
+    .filter(s => s.date === date)
+    .sort((a, b) => a.shift.localeCompare(b.shift));
 }
 
 function buildTextReport(data: ExportData, date: string): string {
-  const { label } = getWeekRange(date);
-  const weekSchedules = getWeekSchedules(data.schedules, date);
-  
-  let text = `📋 *ESCALA DA SEMANA*\n${label}\n\n`;
+  const daySchedules = getDaySchedules(data.schedules, date);
 
-  if (weekSchedules.length === 0) {
-    text += "Nenhuma escala nesta semana.\n";
+  let text = `📋 *ESCALA DO DIA*\n📅 ${formatDate(date)} — ${getDayOfWeek(date)}\n\n`;
+
+  if (daySchedules.length === 0) {
+    text += "Nenhuma escala nesta data.\n";
     return text;
   }
 
-  // Group by date
-  const byDate = new Map<string, Schedule[]>();
-  weekSchedules.forEach(s => {
-    const list = byDate.get(s.date) || [];
+  const byShift = new Map<string, Schedule[]>();
+  daySchedules.forEach(s => {
+    const list = byShift.get(s.shift) || [];
     list.push(s);
-    byDate.set(s.date, list);
+    byShift.set(s.shift, list);
   });
 
-  byDate.forEach((daySchedules, dateKey) => {
-    text += `📅 *${formatDate(dateKey)} — ${getDayOfWeek(dateKey)}*\n`;
-    
-    const byShift = new Map<string, Schedule[]>();
-    daySchedules.forEach(s => {
-      const list = byShift.get(s.shift) || [];
-      list.push(s);
-      byShift.set(s.shift, list);
+  byShift.forEach((shiftSchedules, shift) => {
+    const sorted = [...shiftSchedules].sort((a, b) => {
+      const minA = data.ministries.find(m => m.id === a.ministryId);
+      const minB = data.ministries.find(m => m.id === b.ministryId);
+      return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
     });
 
-    byShift.forEach((shiftSchedules, shift) => {
-      text += `  ${shift === "Manhã" ? "☀️" : "🌙"} *${shift}*\n`;
-      shiftSchedules.forEach(s => {
-        const ministry = data.ministries.find(m => m.id === s.ministryId);
-        const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?").join(", ");
-        const statusIcon = s.status === "Confirmado" ? "✅" : s.status === "Recusado" ? "❌" : s.status === "Concluído" ? "✔️" : "⏳";
-        text += `    • ${ministry?.name || "?"}: ${names} ${statusIcon}\n`;
-      });
+    text += `${shift === "Manhã" ? "☀️" : "🌙"} *${shift}*\n`;
+    sorted.forEach(s => {
+      const ministry = data.ministries.find(m => m.id === s.ministryId);
+      const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?").join(", ");
+      const statusIcon = s.status === "Confirmado" ? "✅" : s.status === "Recusado" ? "❌" : s.status === "Concluído" ? "✔️" : "⏳";
+      text += `  • ${ministry?.name || "?"}: ${names} ${statusIcon}\n`;
     });
     text += "\n";
   });
@@ -76,56 +66,100 @@ export function shareViaWhatsApp(data: ExportData, date: string) {
   window.open(`https://wa.me/?text=${encoded}`, "_blank");
 }
 
-export function exportToPDF(data: ExportData, date: string) {
-  const { label } = getWeekRange(date);
-  const weekSchedules = getWeekSchedules(data.schedules, date);
+function buildShiftColumn(
+  shift: string,
+  schedules: Schedule[],
+  data: ExportData,
+  isManha: boolean
+): string {
+  const accentColor = isManha ? "#f59e0b" : "#6366f1";
+  const bgGradient = isManha
+    ? "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)"
+    : "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)";
+  const icon = isManha ? "☀️" : "🌙";
+  const headerBg = isManha
+    ? "linear-gradient(135deg, #f59e0b, #d97706)"
+    : "linear-gradient(135deg, #6366f1, #4f46e5)";
 
-  // Group by date
-  const byDate = new Map<string, Schedule[]>();
-  weekSchedules.forEach(s => {
-    const list = byDate.get(s.date) || [];
-    list.push(s);
-    byDate.set(s.date, list);
+  const sorted = [...schedules].sort((a, b) => {
+    const minA = data.ministries.find(m => m.id === a.ministryId);
+    const minB = data.ministries.find(m => m.id === b.ministryId);
+    return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
   });
 
-  // Build HTML for PDF
   let rows = "";
-  byDate.forEach((daySchedules, dateKey) => {
-    daySchedules.forEach((s, idx) => {
-      const ministry = data.ministries.find(m => m.id === s.ministryId);
-      const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?").join(", ");
-      const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
-      const statusIcon = s.status === "Confirmado" ? "✅" : s.status === "Recusado" ? "❌" : s.status === "Concluído" ? "✔️" : "⏳";
-      rows += `
-        <tr>
-          ${idx === 0 ? `<td rowspan="${daySchedules.length}" style="font-weight:600;border-right:1px solid #ddd;padding:8px;vertical-align:top;">${formatDate(dateKey)}<br><small style="color:#666">${getDayOfWeek(dateKey)}</small></td>` : ""}
-          <td style="padding:8px;border-right:1px solid #ddd;">
-            <span style="background:hsl(${color}/0.15);color:hsl(${color});padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">${ministry?.name || "?"}</span>
-          </td>
-          <td style="padding:8px;border-right:1px solid #ddd;">${s.shift === "Manhã" ? "☀️" : "🌙"} ${s.shift}</td>
-          <td style="padding:8px;border-right:1px solid #ddd;">${names}</td>
-          <td style="padding:8px;text-align:center;">${statusIcon} ${s.status}</td>
-        </tr>`;
-    });
+  sorted.forEach(s => {
+    const ministry = data.ministries.find(m => m.id === s.ministryId);
+    const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
+    const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?");
+    const statusColor = s.status === "Confirmado" ? "#16a34a" : s.status === "Recusado" ? "#dc2626" : "#d97706";
+    const statusLabel = s.status === "Confirmado" ? "✅ Confirmado" : s.status === "Recusado" ? "❌ Recusado" : "⏳ Pendente";
+
+    const memberChips = names.map(n =>
+      `<span style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;font-size:11px;margin:1px 2px;color:#334155;">${n}</span>`
+    ).join(" ");
+
+    rows += `
+      <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="background:hsl(${color}/0.15);color:hsl(${color});padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${ministry?.name || "?"}</span>
+          <span style="font-size:10px;color:${statusColor};font-weight:600;">${statusLabel}</span>
+        </div>
+        <div style="margin-top:4px;">${memberChips}</div>
+      </div>`;
   });
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Escala Semanal</title>
+  if (sorted.length === 0) {
+    rows = `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;">Nenhuma escala</div>`;
+  }
+
+  return `
+    <div style="flex:1;min-width:260px;border-radius:12px;overflow:hidden;border:2px solid ${accentColor}20;background:${bgGradient};">
+      <div style="background:${headerBg};padding:10px 14px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">${icon}</span>
+        <span style="color:white;font-weight:700;font-size:14px;letter-spacing:0.5px;">${shift}</span>
+        <span style="color:rgba(255,255,255,0.8);font-size:11px;margin-left:auto;">${sorted.length} escala${sorted.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div>${rows}</div>
+    </div>`;
+}
+
+export function exportToPDF(data: ExportData, date: string) {
+  const daySchedules = getDaySchedules(data.schedules, date);
+
+  const manhaSchedules = daySchedules.filter(s => s.shift === "Manhã");
+  const noiteSchedules = daySchedules.filter(s => s.shift === "Noite");
+
+  const manhaCol = buildShiftColumn("Manhã", manhaSchedules, data, true);
+  const noiteCol = buildShiftColumn("Noite", noiteSchedules, data, false);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Escala - ${formatDate(date)}</title>
     <style>
-      body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:24px;color:#1a1a1a;}
-      h1{font-size:20px;margin:0 0 4px;}
-      h2{font-size:14px;color:#666;margin:0 0 16px;font-weight:400;}
-      table{width:100%;border-collapse:collapse;font-size:13px;}
-      th{background:#f5f5f5;padding:10px 8px;text-align:left;border-bottom:2px solid #ddd;font-size:12px;text-transform:uppercase;color:#555;}
-      tr{border-bottom:1px solid #eee;}
-      @media print{body{padding:16px;}}
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;background:#ffffff;color:#1e293b;padding:28px;}
+      @media print{
+        body{padding:16px;}
+        @page{size:A4 landscape;margin:12mm;}
+      }
     </style></head><body>
-    <h1>📋 Escala Semanal</h1>
-    <h2>${label}</h2>
-    ${weekSchedules.length === 0 ? "<p>Nenhuma escala nesta semana.</p>" : `
-    <table>
-      <thead><tr><th>Data</th><th>Ministério</th><th>Turno</th><th>Pessoas</th><th>Status</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`}
+    <div style="text-align:center;margin-bottom:20px;">
+      <h1 style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">📋 INA Escalas</h1>
+      <div style="margin-top:6px;">
+        <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:4px 14px;font-size:13px;font-weight:600;color:#475569;">
+          📅 ${formatDate(date)} — ${getDayOfWeek(date)}
+        </span>
+      </div>
+      <p style="margin-top:6px;font-size:11px;color:#94a3b8;">${daySchedules.length} escala${daySchedules.length !== 1 ? "s" : ""} nesta data</p>
+    </div>
+
+    ${daySchedules.length === 0
+      ? '<p style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">Nenhuma escala nesta data.</p>'
+      : `<div style="display:flex;gap:16px;align-items:flex-start;">${manhaCol}${noiteCol}</div>`
+    }
+
+    <div style="margin-top:20px;text-align:center;font-size:10px;color:#cbd5e1;border-top:1px solid #f1f5f9;padding-top:10px;">
+      INA Escalas · Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+    </div>
     </body></html>`;
 
   const blob = new Blob([html], { type: "text/html" });
