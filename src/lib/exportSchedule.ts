@@ -96,29 +96,29 @@ function buildShiftColumn(
     const statusLabel = s.status === "Confirmado" ? "✅ Confirmado" : s.status === "Recusado" ? "❌ Recusado" : "⏳ Pendente";
 
     const memberChips = names.map(n =>
-      `<span style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;font-size:11px;margin:1px 2px;color:#334155;">${n}</span>`
+      `<span style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:3px 10px;font-size:14px;margin:2px 3px;color:#1e293b;">${n}</span>`
     ).join(" ");
 
     rows += `
-      <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,0.06);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="background:hsl(${color}/0.15);color:hsl(${color});padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${ministry?.name || "?"}</span>
-          <span style="font-size:10px;color:${statusColor};font-weight:600;">${statusLabel}</span>
+      <div style="padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="background:hsl(${color}/0.15);color:hsl(${color});padding:3px 12px;border-radius:6px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${ministry?.name || "?"}</span>
+          <span style="font-size:13px;color:${statusColor};font-weight:600;">${statusLabel}</span>
         </div>
-        <div style="margin-top:4px;">${memberChips}</div>
+        <div style="margin-top:5px;">${memberChips}</div>
       </div>`;
   });
 
   if (sorted.length === 0) {
-    rows = `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;">Nenhuma escala</div>`;
+    rows = `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:14px;">Nenhuma escala</div>`;
   }
 
   return `
-    <div style="flex:1;min-width:260px;border-radius:12px;overflow:hidden;border:2px solid ${accentColor}20;background:${bgGradient};">
-      <div style="background:${headerBg};padding:10px 14px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:18px;">${icon}</span>
-        <span style="color:white;font-weight:700;font-size:14px;letter-spacing:0.5px;">${shift}</span>
-        <span style="color:rgba(255,255,255,0.8);font-size:11px;margin-left:auto;">${sorted.length} escala${sorted.length !== 1 ? "s" : ""}</span>
+    <div style="flex:1;min-width:280px;border-radius:12px;overflow:hidden;border:2px solid ${accentColor}20;background:${bgGradient};">
+      <div style="background:${headerBg};padding:12px 16px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:22px;">${icon}</span>
+        <span style="color:white;font-weight:700;font-size:18px;letter-spacing:0.5px;">${shift}</span>
+        <span style="color:rgba(255,255,255,0.85);font-size:14px;margin-left:auto;">${sorted.length} escala${sorted.length !== 1 ? "s" : ""}</span>
       </div>
       <div>${rows}</div>
     </div>`;
@@ -136,28 +136,27 @@ export function exportToPDF(data: ExportData, date: string) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Escala - ${formatDate(date)}</title>
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;background:#ffffff;color:#1e293b;padding:28px;}
+      body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;background:#ffffff;color:#1e293b;padding:20px;}
       @media print{
-        body{padding:16px;}
-        @page{size:A4 landscape;margin:12mm;}
+        body{padding:10px;}
+        @page{size:A4 landscape;margin:8mm;}
       }
     </style></head><body>
-    <div style="text-align:center;margin-bottom:20px;">
-      <h1 style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">📋 INA Escalas</h1>
-      <div style="margin-top:6px;">
-        <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:4px 14px;font-size:13px;font-weight:600;color:#475569;">
+    <div style="text-align:center;margin-bottom:14px;">
+      <h1 style="font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">📋 INA Escalas</h1>
+      <div style="margin-top:4px;">
+        <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 16px;font-size:16px;font-weight:600;color:#475569;">
           📅 ${formatDate(date)} — ${getDayOfWeek(date)}
         </span>
       </div>
-      <p style="margin-top:6px;font-size:11px;color:#94a3b8;">${daySchedules.length} escala${daySchedules.length !== 1 ? "s" : ""} nesta data</p>
     </div>
 
     ${daySchedules.length === 0
-      ? '<p style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">Nenhuma escala nesta data.</p>'
-      : `<div style="display:flex;gap:16px;align-items:flex-start;">${manhaCol}${noiteCol}</div>`
+      ? '<p style="text-align:center;padding:40px;color:#94a3b8;font-size:16px;">Nenhuma escala nesta data.</p>'
+      : `<div style="display:flex;gap:12px;align-items:flex-start;">${manhaCol}${noiteCol}</div>`
     }
 
-    <div style="margin-top:20px;text-align:center;font-size:10px;color:#cbd5e1;border-top:1px solid #f1f5f9;padding-top:10px;">
+    <div style="margin-top:14px;text-align:center;font-size:11px;color:#cbd5e1;border-top:1px solid #f1f5f9;padding-top:8px;">
       INA Escalas · Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
     </div>
     </body></html>`;
