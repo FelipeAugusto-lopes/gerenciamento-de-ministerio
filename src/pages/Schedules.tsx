@@ -251,6 +251,17 @@ export default function SchedulesPage() {
     showSaved();
   };
 
+  const handleConfirmAllForDate = (date: string) => {
+    const toConfirm = schedules.filter(s => s.date === date && s.status !== "Confirmado");
+    toConfirm.forEach(s => {
+      updateSchedule({ ...s, status: "Confirmado" });
+    });
+    if (toConfirm.length > 0) {
+      addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(date)}`);
+      showSaved(`${toConfirm.length} escala(s) confirmada(s)!`);
+    }
+  };
+
   const handleDuplicate = () => {
     if (!duplicateSchedule || !duplicateDate) return;
     addSchedule({
