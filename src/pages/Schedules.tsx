@@ -251,6 +251,17 @@ export default function SchedulesPage() {
     showSaved();
   };
 
+  const handleConfirmAllForDate = (date: string) => {
+    const toConfirm = schedules.filter(s => s.date === date && s.status !== "Confirmado");
+    toConfirm.forEach(s => {
+      updateSchedule({ ...s, status: "Confirmado" });
+    });
+    if (toConfirm.length > 0) {
+      addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(date)}`);
+      showSaved(`${toConfirm.length} escala(s) confirmada(s)!`);
+    }
+  };
+
   const handleDuplicate = () => {
     if (!duplicateSchedule || !duplicateDate) return;
     addSchedule({
@@ -379,13 +390,6 @@ export default function SchedulesPage() {
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => startEditMembers(s)}
-              title="Editar pessoas"
-              className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
               onClick={() => { setDuplicateSchedule(s); setDuplicateDate(""); }}
               title="Duplicar escala"
               className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
@@ -450,8 +454,21 @@ export default function SchedulesPage() {
           </div>
         )}
 
-        {/* Status toggle */}
-        <StatusToggle schedule={s} />
+        {/* Status toggle + edit inline */}
+        <div className="flex items-center justify-between gap-2">
+          <StatusToggle schedule={s} />
+          {!isEditing && (
+            <button
+              onClick={() => startEditMembers(s)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-all",
+                "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+              )}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -838,6 +855,16 @@ export default function SchedulesPage() {
                 </div>
                 <span className="text-xs text-muted-foreground">{getDayOfWeek(date)}</span>
                 <div className="flex-1 h-px bg-border" />
+                {[...groups.manhã, ...groups.noite].some(s => s.status !== "Confirmado") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                    onClick={() => handleConfirmAllForDate(date)}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar Todos
+                  </Button>
+                )}
               </div>
 
               {/* Manhã section */}
