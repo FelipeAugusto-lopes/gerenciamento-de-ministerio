@@ -36,12 +36,6 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
-const statusIcons: Record<ScheduleStatus, string> = {
-  Pendente: "⏳",
-  Confirmado: "✅",
-  Recusado: "❌",
-  Concluído: "✔️",
-};
 
 export default function IndexPage() {
   const { schedules, ministries, members, addSchedule, deleteSchedule, updateSchedule } = useStore();
