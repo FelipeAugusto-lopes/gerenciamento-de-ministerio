@@ -450,8 +450,21 @@ export default function SchedulesPage() {
           </div>
         )}
 
-        {/* Status toggle */}
-        <StatusToggle schedule={s} />
+        {/* Status toggle + edit inline */}
+        <div className="flex items-center justify-between gap-2">
+          <StatusToggle schedule={s} />
+          {!isEditing && (
+            <button
+              onClick={() => startEditMembers(s)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-all",
+                "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+              )}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </button>
+          )}
+        </div>
       </div>
     );
   };
