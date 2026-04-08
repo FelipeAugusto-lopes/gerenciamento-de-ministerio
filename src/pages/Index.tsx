@@ -3,12 +3,21 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil } from "lucide-react";
 import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
+
+const statusConfig: Record<ScheduleStatus, { icon: typeof Clock; color: string; bg: string; border: string; label: string }> = {
+  Pendente: { icon: Clock, color: "text-amber-600", bg: "bg-amber-500/15", border: "border-amber-400/40", label: "Pendente" },
+  Confirmado: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-500/15", border: "border-emerald-400/40", label: "Confirmado" },
+  Recusado: { icon: XCircle, color: "text-red-500", bg: "bg-red-500/12", border: "border-red-400/40", label: "Recusado" },
+  Concluído: { icon: Check, color: "text-muted-foreground", bg: "bg-muted/60", border: "border-border", label: "Concluído" },
+};
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -27,12 +36,6 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
-const statusIcons: Record<ScheduleStatus, string> = {
-  Pendente: "⏳",
-  Confirmado: "✅",
-  Recusado: "❌",
-  Concluído: "✔️",
-};
 
 export default function IndexPage() {
   const { schedules, ministries, members, addSchedule, deleteSchedule, updateSchedule } = useStore();
@@ -49,6 +52,9 @@ export default function IndexPage() {
     shift: "Manhã" as Shift,
     selectedMemberIds: [] as string[],
   });
+
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
 
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
@@ -146,6 +152,38 @@ export default function IndexPage() {
     const ministry = ministries.find(m => m.id === s.ministryId);
     const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
     addEntry("Alterou status", `${memberNames} (${ministry?.name}) → ${newStatus}`);
+  };
+
+  const handleConfirmAllForDate = () => {
+    if (!selectedDate) return;
+    const toConfirm = schedules.filter(s => s.date === selectedDate && s.status !== "Confirmado");
+    toConfirm.forEach(s => {
+      updateSchedule({ ...s, status: "Confirmado" });
+    });
+    if (toConfirm.length > 0) {
+      addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(selectedDate)}`);
+    }
+  };
+
+  const startEditMembers = (s: typeof schedules[0]) => {
+    setEditingScheduleId(s.id);
+    setEditMemberIds([...s.memberIds]);
+  };
+
+  const saveEditMembers = (s: typeof schedules[0]) => {
+    if (editMemberIds.length === 0) return;
+    updateSchedule({ ...s, memberIds: editMemberIds });
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const names = editMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
+    addEntry("Editou membros da escala", `${ministry?.name} — ${formatDate(s.date)}: ${names}`);
+    setEditingScheduleId(null);
+    setEditMemberIds([]);
+  };
+
+  const toggleEditMember = (memberId: string) => {
+    setEditMemberIds(prev =>
+      prev.includes(memberId) ? prev.filter(id => id !== memberId) : [...prev, memberId]
+    );
   };
 
   const todayStr = today.toISOString().split("T")[0];
@@ -255,14 +293,19 @@ export default function IndexPage() {
         <div className="animate-fade-in space-y-4">
           {/* Date header */}
           <div className="content-card">
-            <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center justify-between px-5 py-4 flex-wrap gap-2">
               <div>
                 <h3 className="font-display text-xl font-bold text-foreground">
                   {formatDate(selectedDate)}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedSchedules.some(s => s.status !== "Confirmado") && (
+                  <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50" onClick={handleConfirmAllForDate}>
+                    <CheckCircle2 className="h-4 w-4" /> Confirmar Todos
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
                   <FileText className="h-4 w-4" />
                 </Button>
@@ -333,13 +376,8 @@ export default function IndexPage() {
                         const ministry = ministries.find(m => m.id === s.ministryId);
                         const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
                         const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
-                        const statusColor = s.status === "Confirmado"
-                          ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-                          : s.status === "Recusado"
-                          ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
-                          : s.status === "Concluído"
-                          ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
-                          : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+                        const isEditing = editingScheduleId === s.id;
+                        const editableMembers = ministry ? members.filter(m => m.ministryIds.includes(s.ministryId)) : members;
 
                         return (
                           <div
@@ -363,31 +401,80 @@ export default function IndexPage() {
                                   >
                                     {ministry?.name || "?"}
                                   </span>
-                                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border", statusColor)}>
-                                    {statusIcons[s.status]} {s.status}
-                                  </span>
                                 </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {memberNames.map((name, idx) => (
-                                    <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
-                                      <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-                                      {name}
-                                    </span>
-                                  ))}
-                                </div>
+                                {/* Members or edit mode */}
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {editableMembers.map(m => {
+                                        const selected = editMemberIds.includes(m.id);
+                                        return (
+                                          <button
+                                            key={m.id}
+                                            onClick={() => toggleEditMember(m.id)}
+                                            className={cn(
+                                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors",
+                                              selected
+                                                ? "bg-primary/10 text-primary border-primary/30"
+                                                : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted"
+                                            )}
+                                          >
+                                            {selected && <Check className="h-3 w-3" />}
+                                            {m.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="flex gap-1.5">
+                                      <Button size="sm" className="h-7 text-xs" onClick={() => saveEditMembers(s)} disabled={editMemberIds.length === 0}>
+                                        <Check className="h-3 w-3 mr-1" /> Salvar
+                                      </Button>
+                                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingScheduleId(null)}>
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {memberNames.map((name, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                                        {name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <Select value={s.status} onValueChange={v => handleStatusChange(s, v as ScheduleStatus)}>
-                                  <SelectTrigger className="w-fit h-7 text-[10px] border-dashed">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Pendente">⏳ Pendente</SelectItem>
-                                    <SelectItem value="Confirmado">✅ Confirmado</SelectItem>
-                                    <SelectItem value="Recusado">❌ Recusado</SelectItem>
-                                    <SelectItem value="Concluído">✔️ Concluído</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                {/* 1-click status toggle */}
+                                <div className="flex gap-0.5">
+                                  {STATUS_LIST.map(st => {
+                                    const c = statusConfig[st];
+                                    const StIcon = c.icon;
+                                    const isActive = s.status === st;
+                                    return (
+                                      <button
+                                        key={st}
+                                        onClick={() => !isActive && handleStatusChange(s, st)}
+                                        title={c.label}
+                                        className={cn(
+                                          "rounded-lg p-1.5 transition-all border",
+                                          isActive ? `${c.bg} ${c.border} ${c.color} shadow-sm` : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50"
+                                        )}
+                                      >
+                                        <StIcon className="h-3.5 w-3.5" />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {/* Edit button */}
+                                <button
+                                  onClick={() => startEditMembers(s)}
+                                  title="Editar membros"
+                                  className="rounded-md p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
                                 <button onClick={() => handleDelete(s.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
