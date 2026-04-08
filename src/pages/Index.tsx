@@ -160,6 +160,38 @@ export default function IndexPage() {
     addEntry("Alterou status", `${memberNames} (${ministry?.name}) → ${newStatus}`);
   };
 
+  const handleConfirmAllForDate = () => {
+    if (!selectedDate) return;
+    const toConfirm = schedules.filter(s => s.date === selectedDate && s.status !== "Confirmado");
+    toConfirm.forEach(s => {
+      updateSchedule({ ...s, status: "Confirmado" });
+    });
+    if (toConfirm.length > 0) {
+      addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(selectedDate)}`);
+    }
+  };
+
+  const startEditMembers = (s: typeof schedules[0]) => {
+    setEditingScheduleId(s.id);
+    setEditMemberIds([...s.memberIds]);
+  };
+
+  const saveEditMembers = (s: typeof schedules[0]) => {
+    if (editMemberIds.length === 0) return;
+    updateSchedule({ ...s, memberIds: editMemberIds });
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const names = editMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
+    addEntry("Editou membros da escala", `${ministry?.name} — ${formatDate(s.date)}: ${names}`);
+    setEditingScheduleId(null);
+    setEditMemberIds([]);
+  };
+
+  const toggleEditMember = (memberId: string) => {
+    setEditMemberIds(prev =>
+      prev.includes(memberId) ? prev.filter(id => id !== memberId) : [...prev, memberId]
+    );
+  };
+
   const todayStr = today.toISOString().split("T")[0];
 
   const getMinistryOrder = (ministryId: string) => {
