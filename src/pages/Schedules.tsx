@@ -390,13 +390,6 @@ export default function SchedulesPage() {
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => startEditMembers(s)}
-              title="Editar pessoas"
-              className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
               onClick={() => { setDuplicateSchedule(s); setDuplicateDate(""); }}
               title="Duplicar escala"
               className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
