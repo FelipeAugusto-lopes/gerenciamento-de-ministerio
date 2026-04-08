@@ -59,6 +59,9 @@ export default function IndexPage() {
     selectedMemberIds: [] as string[],
   });
 
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
+
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
   const schedulesByDate = useMemo(() => {
