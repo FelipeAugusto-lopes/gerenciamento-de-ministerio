@@ -862,6 +862,16 @@ export default function SchedulesPage() {
                 </div>
                 <span className="text-xs text-muted-foreground">{getDayOfWeek(date)}</span>
                 <div className="flex-1 h-px bg-border" />
+                {[...groups.manhã, ...groups.noite].some(s => s.status !== "Confirmado") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                    onClick={() => handleConfirmAllForDate(date)}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar Todos
+                  </Button>
+                )}
               </div>
 
               {/* Manhã section */}
