@@ -301,11 +301,6 @@ export default function IndexPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {selectedSchedules.some(s => s.status !== "Confirmado") && (
-                  <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50" onClick={handleConfirmAllForDate}>
-                    <CheckCircle2 className="h-4 w-4" /> Confirmar Todos
-                  </Button>
-                )}
                 <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
                   <FileText className="h-4 w-4" />
                 </Button>
@@ -446,27 +441,6 @@ export default function IndexPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                {/* 1-click status toggle */}
-                                <div className="flex gap-0.5">
-                                  {STATUS_LIST.map(st => {
-                                    const c = statusConfig[st];
-                                    const StIcon = c.icon;
-                                    const isActive = s.status === st;
-                                    return (
-                                      <button
-                                        key={st}
-                                        onClick={() => !isActive && handleStatusChange(s, st)}
-                                        title={c.label}
-                                        className={cn(
-                                          "rounded-lg p-1.5 transition-all border",
-                                          isActive ? `${c.bg} ${c.border} ${c.color} shadow-sm` : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50"
-                                        )}
-                                      >
-                                        <StIcon className="h-3.5 w-3.5" />
-                                      </button>
-                                    );
-                                  })}
-                                </div>
                                 {/* Edit button */}
                                 <button
                                   onClick={() => startEditMembers(s)}
