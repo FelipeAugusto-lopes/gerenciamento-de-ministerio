@@ -5,6 +5,7 @@ import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
 import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil } from "lucide-react";
 import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
+import { getMinistryIcon } from "@/lib/ministryIcons";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -265,20 +266,27 @@ export default function IndexPage() {
                   {day}
                 </span>
                 {daySchedules.length > 0 && (
-                  <div className="mt-1 space-y-0.5">
-                    {uniqueMinistries.slice(0, 3).map(mid => {
-                      const min = ministries.find(m => m.id === mid);
-                      if (!min) return null;
-                      const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
-                      return (
-                        <div key={mid} className="flex items-center gap-1">
-                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: `hsl(${color})` }} />
-                          <span className="text-[9px] sm:text-[10px] text-muted-foreground truncate">{min.name}</span>
-                        </div>
-                      );
-                    })}
-                    {uniqueMinistries.length > 3 && (
-                      <span className="text-[9px] text-muted-foreground">+{uniqueMinistries.length - 3}</span>
+                  <div className="mt-1">
+                    <div className="flex flex-wrap gap-1">
+                      {uniqueMinistries.slice(0, 5).map(mid => {
+                        const min = ministries.find(m => m.id === mid);
+                        if (!min) return null;
+                        const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
+                        const Icon = getMinistryIcon(min.name);
+                        return (
+                          <span
+                            key={mid}
+                            title={min.name}
+                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shadow-sm ring-1 ring-white/50"
+                            style={{ backgroundColor: `hsl(${color} / 0.2)`, color: `hsl(${color})` }}
+                          >
+                            <Icon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {uniqueMinistries.length > 5 && (
+                      <span className="text-[9px] text-muted-foreground mt-0.5 block">+{uniqueMinistries.length - 5}</span>
                     )}
                   </div>
                 )}
@@ -328,10 +336,10 @@ export default function IndexPage() {
                   <div
                     key={group.shift}
                     className={cn(
-                      "rounded-xl border-2 overflow-hidden shadow-sm",
+                      "rounded-xl border overflow-hidden shadow-md hover:shadow-lg transition-shadow",
                       isManha
-                        ? "border-amber-200 bg-gradient-to-b from-amber-50/80 to-white dark:from-amber-950/20 dark:to-card dark:border-amber-900/40"
-                        : "border-indigo-200 bg-gradient-to-b from-indigo-50/80 to-white dark:from-indigo-950/20 dark:to-card dark:border-indigo-900/40"
+                        ? "border-amber-200/60 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/40 dark:from-amber-950/30 dark:via-card dark:to-orange-950/10 dark:border-amber-900/40"
+                        : "border-indigo-200/60 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/40 dark:from-indigo-950/30 dark:via-card dark:to-violet-950/10 dark:border-indigo-900/40"
                     )}
                   >
                     {/* Shift header */}
@@ -374,11 +382,14 @@ export default function IndexPage() {
                         const isEditing = editingScheduleId === s.id;
                         const editableMembers = ministry ? members.filter(m => m.ministryIds.includes(s.ministryId)) : members;
 
+                        const MinIcon = ministry ? getMinistryIcon(ministry.name) : null;
+
                         return (
                           <div
                             key={s.id}
                             className={cn(
-                              "rounded-lg bg-white dark:bg-card p-3 transition-all hover:shadow-md",
+                              "rounded-lg p-3 transition-all hover:shadow-md",
+                              "bg-gradient-to-r from-white to-muted/20 dark:from-card dark:to-muted/10",
                               s.status === "Recusado" && "opacity-50"
                             )}
                             style={{ borderLeft: `4px solid hsl(${color})` }}
@@ -386,12 +397,19 @@ export default function IndexPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-2">
+                                  {MinIcon && (
+                                    <span
+                                      className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: `hsl(${color} / 0.15)`, color: `hsl(${color})` }}
+                                    >
+                                      <MinIcon className="h-4 w-4" />
+                                    </span>
+                                  )}
                                   <span
                                     className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold"
                                     style={ministry ? {
-                                      backgroundColor: `hsl(${color} / 0.15)`,
+                                      backgroundColor: `hsl(${color} / 0.1)`,
                                       color: `hsl(${color})`,
-                                      border: `1px solid hsl(${color} / 0.3)`,
                                     } : {}}
                                   >
                                     {ministry?.name || "?"}
