@@ -587,6 +587,54 @@ export default function IndexPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Export Options */}
+      <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Exportar PDF</DialogTitle>
+            <DialogDescription>Escolha quais campos incluir no PDF.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {[
+              { key: "showDate", label: "Data" },
+              { key: "showShift", label: "Turno (Manhã / Noite)" },
+              { key: "showMinistry", label: "Ministério" },
+              { key: "showMembers", label: "Membros" },
+            ].map(opt => (
+              <label
+                key={opt.key}
+                htmlFor={`pdf-${opt.key}`}
+                className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <Checkbox
+                  id={`pdf-${opt.key}`}
+                  checked={pdfOpts[opt.key as keyof typeof pdfOpts]}
+                  onCheckedChange={(c) =>
+                    setPdfOpts(p => ({ ...p, [opt.key]: c === true }))
+                  }
+                />
+                <span className="text-sm font-medium">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPdfDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (selectedDate) {
+                  exportToPDF({ schedules, members, ministries }, selectedDate, pdfOpts);
+                  setShowPdfDialog(false);
+                }
+              }}
+              disabled={!Object.values(pdfOpts).some(Boolean)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Gerar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
