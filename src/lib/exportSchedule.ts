@@ -51,8 +51,7 @@ function buildTextReport(data: ExportData, date: string): string {
     sorted.forEach(s => {
       const ministry = data.ministries.find(m => m.id === s.ministryId);
       const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?").join(", ");
-      const statusIcon = s.status === "Confirmado" ? "✅" : s.status === "Recusado" ? "❌" : s.status === "Concluído" ? "✔️" : "⏳";
-      text += `  • ${ministry?.name || "?"}: ${names} ${statusIcon}\n`;
+      text += `  • ${ministry?.name || "?"}: ${names}\n`;
     });
     text += "\n";
   });
