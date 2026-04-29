@@ -49,6 +49,13 @@ export default function IndexPage() {
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [pdfOpts, setPdfOpts] = useState({
+    showMinistry: true,
+    showMembers: true,
+    showShift: true,
+    showDate: true,
+  });
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
