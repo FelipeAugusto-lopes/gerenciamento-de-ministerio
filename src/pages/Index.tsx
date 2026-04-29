@@ -8,7 +8,9 @@ import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
