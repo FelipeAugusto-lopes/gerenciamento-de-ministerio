@@ -8,7 +8,9 @@ import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
@@ -47,6 +49,13 @@ export default function IndexPage() {
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [pdfOpts, setPdfOpts] = useState({
+    showMinistry: true,
+    showMembers: true,
+    showShift: true,
+    showDate: true,
+  });
 
   const [newForm, setNewForm] = useState({
     ministryId: "",
@@ -309,7 +318,7 @@ export default function IndexPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => exportToPDF({ schedules, members, ministries }, selectedDate)}>
+                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
                   <FileText className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
@@ -576,6 +585,54 @@ export default function IndexPage() {
               Adicionar {newForm.selectedMemberIds.length > 0 ? `${newForm.selectedMemberIds.length} pessoa${newForm.selectedMemberIds.length > 1 ? "s" : ""}` : "Escala"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Export Options */}
+      <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Exportar PDF</DialogTitle>
+            <DialogDescription>Escolha quais campos incluir no PDF.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {[
+              { key: "showDate", label: "Data" },
+              { key: "showShift", label: "Turno (Manhã / Noite)" },
+              { key: "showMinistry", label: "Ministério" },
+              { key: "showMembers", label: "Membros" },
+            ].map(opt => (
+              <label
+                key={opt.key}
+                htmlFor={`pdf-${opt.key}`}
+                className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <Checkbox
+                  id={`pdf-${opt.key}`}
+                  checked={pdfOpts[opt.key as keyof typeof pdfOpts]}
+                  onCheckedChange={(c) =>
+                    setPdfOpts(p => ({ ...p, [opt.key]: c === true }))
+                  }
+                />
+                <span className="text-sm font-medium">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPdfDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (selectedDate) {
+                  exportToPDF({ schedules, members, ministries }, selectedDate, pdfOpts);
+                  setShowPdfDialog(false);
+                }
+              }}
+              disabled={!Object.values(pdfOpts).some(Boolean)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Gerar PDF
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
