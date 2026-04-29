@@ -225,26 +225,26 @@ export default function IndexPage() {
 
       {/* Calendar */}
       <div className="content-card">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <Button variant="ghost" size="icon" onClick={prevMonth}>
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <Button variant="ghost" size="icon" onClick={prevMonth} className="rounded-full">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-display text-lg font-bold text-foreground">
-            {MONTH_NAMES[month]} {year}
+          <h2 className="font-display text-lg font-semibold tracking-tight text-foreground">
+            {MONTH_NAMES[month]} <span className="text-muted-foreground font-normal">{year}</span>
           </h2>
-          <Button variant="ghost" size="icon" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" onClick={nextMonth} className="rounded-full">
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
 
         <div className="grid grid-cols-7">
           {DAYS.map(d => (
-            <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground border-b">
+            <div key={d} className="py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b">
               {d}
             </div>
           ))}
           {calendarDays.map((day, i) => {
-            if (day === null) return <div key={`empty-${i}`} className="border-b border-r last:border-r-0" />;
+            if (day === null) return <div key={`empty-${i}`} className="border-b border-r last:border-r-0 bg-muted/20" />;
             const ds = dateStr(day);
             const daySchedules = schedulesByDate.get(ds) || [];
             const isToday = ds === todayStr;
@@ -262,20 +262,21 @@ export default function IndexPage() {
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
                 className={cn(
-                  "relative min-h-[70px] sm:min-h-[90px] border-b border-r last:border-r-0 p-1 sm:p-2 text-left transition-colors hover:bg-muted/50",
-                  isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
-                  isToday && !isSelected && "bg-accent/10"
+                  "group relative min-h-[78px] sm:min-h-[96px] border-b border-r last:border-r-0 p-2 text-left transition-all",
+                  "hover:bg-primary/[0.04]",
+                  isSelected && "bg-primary/[0.06] ring-1 ring-primary/40 ring-inset",
                 )}
               >
                 <span className={cn(
-                  "text-xs sm:text-sm font-medium",
-                  isToday && "bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center",
-                  !isToday && "text-foreground"
+                  "inline-flex items-center justify-center text-sm font-medium transition-colors",
+                  isToday && "bg-primary text-primary-foreground rounded-full w-7 h-7 font-semibold shadow-sm",
+                  !isToday && isSelected && "text-primary font-semibold",
+                  !isToday && !isSelected && "text-foreground/80 group-hover:text-foreground"
                 )}>
                   {day}
                 </span>
                 {daySchedules.length > 0 && (
-                  <div className="mt-1">
+                  <div className="mt-1.5">
                     <div className="flex flex-wrap gap-1">
                       {uniqueMinistries.slice(0, 5).map(mid => {
                         const min = ministries.find(m => m.id === mid);
@@ -286,8 +287,8 @@ export default function IndexPage() {
                           <span
                             key={mid}
                             title={min.name}
-                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shadow-sm ring-1 ring-white/50"
-                            style={{ backgroundColor: `hsl(${color} / 0.2)`, color: `hsl(${color})` }}
+                            className="h-5 w-5 sm:h-[22px] sm:w-[22px] rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: `hsl(${color} / 0.12)`, color: `hsl(${color})` }}
                           >
                             <Icon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           </span>
@@ -295,7 +296,7 @@ export default function IndexPage() {
                       })}
                     </div>
                     {uniqueMinistries.length > 5 && (
-                      <span className="text-[9px] text-muted-foreground mt-0.5 block">+{uniqueMinistries.length - 5}</span>
+                      <span className="text-[9px] font-medium text-muted-foreground mt-0.5 block">+{uniqueMinistries.length - 5}</span>
                     )}
                   </div>
                 )}
@@ -305,85 +306,68 @@ export default function IndexPage() {
         </div>
       </div>
 
-      {/* Selected date detail — modern shift cards */}
+      {/* Selected date detail — refined minimal layout */}
       {selectedDate && (
-        <div className="animate-fade-in space-y-4">
+        <div className="animate-fade-in space-y-5">
           {/* Date header */}
-          <div className="content-card">
-            <div className="flex items-center justify-between px-5 py-4 flex-wrap gap-2">
-              <div>
-                <h3 className="font-display text-xl font-bold text-foreground">
-                  {formatDate(selectedDate)}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
-                  <FileText className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
-                  <Plus className="h-5 w-5" /> Nova Escala
-                </Button>
-              </div>
+          <div className="flex items-end justify-between gap-4 flex-wrap border-b pb-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary/80">
+                {getDayOfWeek(selectedDate)}
+              </p>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold text-foreground tracking-tight mt-0.5">
+                {formatDate(selectedDate)}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {selectedSchedules.length} {selectedSchedules.length === 1 ? "escala" : "escalas"} nesta data
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
+                <Share2 className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-10 px-5 rounded-full shadow-sm">
+                <Plus className="h-4 w-4" /> Nova Escala
+              </Button>
             </div>
           </div>
 
           {selectedSchedules.length === 0 ? (
-            <div className="content-card flex flex-col items-center py-12 text-muted-foreground">
-              <Calendar className="h-12 w-12 mb-3 opacity-30" />
+            <div className="content-card flex flex-col items-center py-16 text-muted-foreground">
+              <Calendar className="h-10 w-10 mb-3 opacity-30" />
               <p className="text-sm font-medium">Nenhuma escala nesta data.</p>
               <p className="text-xs mt-1 opacity-60">Clique em "Nova Escala" para começar</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {groupedByShift.map(group => {
                 const isManha = group.shift === "Manhã";
                 return (
                   <div
                     key={group.shift}
-                    className={cn(
-                      "rounded-xl border overflow-hidden shadow-md hover:shadow-lg transition-shadow",
-                      isManha
-                        ? "border-amber-200/60 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/40 dark:from-amber-950/30 dark:via-card dark:to-orange-950/10 dark:border-amber-900/40"
-                        : "border-indigo-200/60 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/40 dark:from-indigo-950/30 dark:via-card dark:to-violet-950/10 dark:border-indigo-900/40"
-                    )}
+                    className="content-card overflow-hidden"
                   >
-                    {/* Shift header */}
-                    <div className={cn(
-                      "px-5 py-4 flex items-center gap-3",
-                      isManha
-                        ? "bg-amber-100/60 dark:bg-amber-900/20"
-                        : "bg-indigo-100/60 dark:bg-indigo-900/20"
-                    )}>
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-lg",
-                        isManha
-                          ? "bg-amber-200 dark:bg-amber-800/40"
-                          : "bg-indigo-200 dark:bg-indigo-800/40"
-                      )}>
-                        {isManha ? "☀️" : "🌙"}
-                      </div>
-                      <div>
-                        <h4 className={cn(
-                          "font-display text-base font-bold",
-                          isManha ? "text-amber-800 dark:text-amber-300" : "text-indigo-800 dark:text-indigo-300"
-                        )}>
-                          Turno da {group.shift}
+                    {/* Shift header — sober, brand-aligned */}
+                    <div className="px-5 py-3.5 flex items-center justify-between border-b bg-muted/30">
+                      <div className="flex items-center gap-2.5">
+                        <span className={cn(
+                          "h-2 w-2 rounded-full",
+                          isManha ? "bg-accent" : "bg-primary"
+                        )} />
+                        <h4 className="font-display text-sm font-semibold uppercase tracking-wider text-foreground/80">
+                          {group.shift}
                         </h4>
-                        <p className={cn(
-                          "text-xs",
-                          isManha ? "text-amber-600/70 dark:text-amber-400/60" : "text-indigo-600/70 dark:text-indigo-400/60"
-                        )}>
-                          {group.schedules.length} ministério{group.schedules.length !== 1 ? "s" : ""}
-                        </p>
                       </div>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {group.schedules.length} {group.schedules.length === 1 ? "ministério" : "ministérios"}
+                      </span>
                     </div>
 
                     {/* Schedule items */}
-                    <div className="divide-y divide-border/50 p-2 space-y-1">
+                    <div className="divide-y divide-border/60">
                       {group.schedules.map(s => {
                         const ministry = ministries.find(m => m.id === s.ministryId);
                         const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
@@ -397,29 +381,24 @@ export default function IndexPage() {
                           <div
                             key={s.id}
                             className={cn(
-                              "rounded-lg p-3 transition-all hover:shadow-md",
-                              "bg-gradient-to-r from-white to-muted/20 dark:from-card dark:to-muted/10",
+                              "group/item p-4 transition-colors hover:bg-muted/20",
                               s.status === "Recusado" && "opacity-50"
                             )}
-                            style={{ borderLeft: `4px solid hsl(${color})` }}
                           >
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2.5 mb-2.5">
                                   {MinIcon && (
                                     <span
-                                      className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-                                      style={{ backgroundColor: `hsl(${color} / 0.15)`, color: `hsl(${color})` }}
+                                      className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: `hsl(${color} / 0.12)`, color: `hsl(${color})` }}
                                     >
                                       <MinIcon className="h-4 w-4" />
                                     </span>
                                   )}
                                   <span
-                                    className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold"
-                                    style={ministry ? {
-                                      backgroundColor: `hsl(${color} / 0.1)`,
-                                      color: `hsl(${color})`,
-                                    } : {}}
+                                    className="font-display text-sm font-semibold tracking-tight"
+                                    style={ministry ? { color: `hsl(${color})` } : {}}
                                   >
                                     {ministry?.name || "?"}
                                   </span>
@@ -457,18 +436,16 @@ export default function IndexPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-wrap gap-1.5">
+                                  <div className="flex flex-wrap gap-1.5 pl-[42px]">
                                     {memberNames.map((name, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                                      <span key={idx} className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground/80">
                                         {name}
                                       </span>
                                     ))}
                                   </div>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {/* Edit button */}
+                              <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => startEditMembers(s)}
                                   title="Editar membros"
@@ -476,7 +453,7 @@ export default function IndexPage() {
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
-                                <button onClick={() => handleDelete(s.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
+                                <button onClick={() => handleDelete(s.id)} title="Excluir" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
