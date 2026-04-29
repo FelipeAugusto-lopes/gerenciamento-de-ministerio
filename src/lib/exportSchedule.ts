@@ -92,8 +92,6 @@ function buildShiftColumn(
     const ministry = data.ministries.find(m => m.id === s.ministryId);
     const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
     const names = s.memberIds.map(id => data.members.find(m => m.id === id)?.name || "?");
-    const statusColor = s.status === "Confirmado" ? "#16a34a" : s.status === "Recusado" ? "#dc2626" : "#d97706";
-    const statusLabel = s.status === "Confirmado" ? "✅ Confirmado" : s.status === "Recusado" ? "❌ Recusado" : "⏳ Pendente";
 
     const memberChips = names.map(n =>
       `<span style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:3px 10px;font-size:14px;margin:2px 3px;color:#1e293b;">${n}</span>`
@@ -101,9 +99,8 @@ function buildShiftColumn(
 
     rows += `
       <div style="padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <div style="margin-bottom:5px;">
           <span style="background:hsl(${color}/0.15);color:hsl(${color});padding:3px 12px;border-radius:6px;font-size:14px;font-weight:700;letter-spacing:0.3px;">${ministry?.name || "?"}</span>
-          <span style="font-size:13px;color:${statusColor};font-weight:600;">${statusLabel}</span>
         </div>
         <div style="margin-top:5px;">${memberChips}</div>
       </div>`;
