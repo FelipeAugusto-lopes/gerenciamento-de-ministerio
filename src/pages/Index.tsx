@@ -225,26 +225,26 @@ export default function IndexPage() {
 
       {/* Calendar */}
       <div className="content-card">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <Button variant="ghost" size="icon" onClick={prevMonth}>
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <Button variant="ghost" size="icon" onClick={prevMonth} className="rounded-full">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-display text-lg font-bold text-foreground">
-            {MONTH_NAMES[month]} {year}
+          <h2 className="font-display text-lg font-semibold tracking-tight text-foreground">
+            {MONTH_NAMES[month]} <span className="text-muted-foreground font-normal">{year}</span>
           </h2>
-          <Button variant="ghost" size="icon" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" onClick={nextMonth} className="rounded-full">
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
 
         <div className="grid grid-cols-7">
           {DAYS.map(d => (
-            <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground border-b">
+            <div key={d} className="py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b">
               {d}
             </div>
           ))}
           {calendarDays.map((day, i) => {
-            if (day === null) return <div key={`empty-${i}`} className="border-b border-r last:border-r-0" />;
+            if (day === null) return <div key={`empty-${i}`} className="border-b border-r last:border-r-0 bg-muted/20" />;
             const ds = dateStr(day);
             const daySchedules = schedulesByDate.get(ds) || [];
             const isToday = ds === todayStr;
@@ -262,20 +262,21 @@ export default function IndexPage() {
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
                 className={cn(
-                  "relative min-h-[70px] sm:min-h-[90px] border-b border-r last:border-r-0 p-1 sm:p-2 text-left transition-colors hover:bg-muted/50",
-                  isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
-                  isToday && !isSelected && "bg-accent/10"
+                  "group relative min-h-[78px] sm:min-h-[96px] border-b border-r last:border-r-0 p-2 text-left transition-all",
+                  "hover:bg-primary/[0.04]",
+                  isSelected && "bg-primary/[0.06] ring-1 ring-primary/40 ring-inset",
                 )}
               >
                 <span className={cn(
-                  "text-xs sm:text-sm font-medium",
-                  isToday && "bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center",
-                  !isToday && "text-foreground"
+                  "inline-flex items-center justify-center text-sm font-medium transition-colors",
+                  isToday && "bg-primary text-primary-foreground rounded-full w-7 h-7 font-semibold shadow-sm",
+                  !isToday && isSelected && "text-primary font-semibold",
+                  !isToday && !isSelected && "text-foreground/80 group-hover:text-foreground"
                 )}>
                   {day}
                 </span>
                 {daySchedules.length > 0 && (
-                  <div className="mt-1">
+                  <div className="mt-1.5">
                     <div className="flex flex-wrap gap-1">
                       {uniqueMinistries.slice(0, 5).map(mid => {
                         const min = ministries.find(m => m.id === mid);
@@ -286,8 +287,8 @@ export default function IndexPage() {
                           <span
                             key={mid}
                             title={min.name}
-                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shadow-sm ring-1 ring-white/50"
-                            style={{ backgroundColor: `hsl(${color} / 0.2)`, color: `hsl(${color})` }}
+                            className="h-5 w-5 sm:h-[22px] sm:w-[22px] rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: `hsl(${color} / 0.12)`, color: `hsl(${color})` }}
                           >
                             <Icon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           </span>
@@ -295,7 +296,7 @@ export default function IndexPage() {
                       })}
                     </div>
                     {uniqueMinistries.length > 5 && (
-                      <span className="text-[9px] text-muted-foreground mt-0.5 block">+{uniqueMinistries.length - 5}</span>
+                      <span className="text-[9px] font-medium text-muted-foreground mt-0.5 block">+{uniqueMinistries.length - 5}</span>
                     )}
                   </div>
                 )}
