@@ -217,7 +217,7 @@ export default function IndexPage() {
   }, [selectedSchedules, ministries]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="page-stack animate-fade-in">
       <div>
         <h1 className="page-title">Calendário de Escalas</h1>
         <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
@@ -225,14 +225,14 @@ export default function IndexPage() {
 
       {/* Calendar */}
       <div className="content-card">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <Button variant="ghost" size="icon" onClick={prevMonth}>
+        <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-display text-lg font-bold text-foreground">
+          <h2 className="section-title">
             {MONTH_NAMES[month]} {year}
           </h2>
-          <Button variant="ghost" size="icon" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -262,7 +262,7 @@ export default function IndexPage() {
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
                 className={cn(
-                  "relative min-h-[70px] sm:min-h-[90px] border-b border-r last:border-r-0 p-1 sm:p-2 text-left transition-colors hover:bg-muted/50",
+                  "relative min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0 p-1.5 sm:p-2 text-left transition-colors hover:bg-muted/50",
                   isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
                   isToday && !isSelected && "bg-accent/10"
                 )}
@@ -307,29 +307,30 @@ export default function IndexPage() {
 
       {/* Selected date detail — modern shift cards */}
       {selectedDate && (
-        <div className="animate-fade-in space-y-4">
+        <div className="animate-fade-in section-stack">
           {/* Date header */}
           <div className="content-card">
-            <div className="flex items-center justify-between px-5 py-4 flex-wrap gap-2">
+            <div className="card-header-pad flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h3 className="font-display text-xl font-bold text-foreground">
+                <h3 className="card-title">
                   {formatDate(selectedDate)}
                 </h3>
-                <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
+                <p className="meta-text mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
+                <Button variant="outline" size="icon" className="icon-btn" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
                   <FileText className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
+                <Button variant="outline" size="icon" className="icon-btn" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
                   <Share2 className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
-                  <Plus className="h-5 w-5" /> Nova Escala
+                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-10 sm:h-11 px-4 sm:px-5 text-sm sm:text-base">
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" /> Nova Escala
                 </Button>
               </div>
             </div>
           </div>
+
 
           {selectedSchedules.length === 0 ? (
             <div className="content-card flex flex-col items-center py-12 text-muted-foreground">
