@@ -339,7 +339,7 @@ export default function IndexPage() {
               <p className="text-xs mt-1 opacity-60">Clique em "Nova Escala" para começar</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {groupedByShift.map(group => {
                 const isManha = group.shift === "Manhã";
                 return (
@@ -354,22 +354,22 @@ export default function IndexPage() {
                   >
                     {/* Shift header */}
                     <div className={cn(
-                      "px-5 py-4 flex items-center gap-3",
+                      "card-header-pad flex items-center gap-3",
                       isManha
                         ? "bg-amber-100/60 dark:bg-amber-900/20"
                         : "bg-indigo-100/60 dark:bg-indigo-900/20"
                     )}>
                       <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-lg",
+                        "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-base sm:text-lg shrink-0",
                         isManha
                           ? "bg-amber-200 dark:bg-amber-800/40"
                           : "bg-indigo-200 dark:bg-indigo-800/40"
                       )}>
                         {isManha ? "☀️" : "🌙"}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h4 className={cn(
-                          "font-display text-base font-bold",
+                          "section-title",
                           isManha ? "text-amber-800 dark:text-amber-300" : "text-indigo-800 dark:text-indigo-300"
                         )}>
                           Turno da {group.shift}
@@ -384,10 +384,11 @@ export default function IndexPage() {
                     </div>
 
                     {/* Schedule items */}
-                    <div className="divide-y divide-border/50 p-2 space-y-1">
+                    <div className="p-2 sm:p-3 space-y-2">
                       {group.schedules.map(s => {
                         const ministry = ministries.find(m => m.id === s.ministryId);
                         const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+
                         const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
                         const isEditing = editingScheduleId === s.id;
                         const editableMembers = ministry ? members.filter(m => m.ministryIds.includes(s.ministryId)) : members;
