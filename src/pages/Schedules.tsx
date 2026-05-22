@@ -528,7 +528,7 @@ export default function SchedulesPage() {
 
       {/* Stat cards */}
       {filtered.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {(["Pendente", "Confirmado", "Recusado", "Concluído"] as ScheduleStatus[]).map(st => {
             const c = statusConfig[st];
             const Icon = c.icon;
@@ -539,13 +539,14 @@ export default function SchedulesPage() {
                 className={cn("stat-card", c.bg, "cursor-default")}
               >
                 <Icon className={cn("h-5 w-5 mx-auto mb-1", c.color)} />
-                <p className={cn("text-2xl font-bold", c.color)}>{statusSummary[st]}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{c.label}</p>
+                <p className={cn("text-xl sm:text-2xl font-bold", c.color)}>{statusSummary[st]}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{c.label}</p>
               </button>
             );
           })}
         </div>
       )}
+
 
       {/* Filters */}
       {showFilters && (
