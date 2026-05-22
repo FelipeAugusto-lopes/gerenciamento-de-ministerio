@@ -846,17 +846,17 @@ export default function SchedulesPage() {
           <p className="text-sm">Nenhuma escala encontrada</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           {groupedByDate.map(([date, groups]) => (
-            <div key={date} className="space-y-3">
+            <div key={date} className="section-stack">
               {/* Date header */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5">
                   <Calendar className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-primary text-sm">{formatDate(date)}</span>
                 </div>
                 <span className="text-xs text-muted-foreground">{getDayOfWeek(date)}</span>
-                <div className="flex-1 h-px bg-border" />
+                <div className="flex-1 h-px bg-border min-w-[12px]" />
                 {[...groups.manhã, ...groups.noite].some(s => s.status !== "Confirmado") && (
                   <Button
                     size="sm"
@@ -874,7 +874,7 @@ export default function SchedulesPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 ml-1">
                     <Sun className="h-4 w-4 text-amber-500" />
-                    <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Manhã</span>
+                    <span className="eyebrow text-amber-600">Manhã</span>
                     <span className="text-[10px] text-muted-foreground">({groups.manhã.length})</span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -888,7 +888,7 @@ export default function SchedulesPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 ml-1">
                     <Moon className="h-4 w-4 text-indigo-500" />
-                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Noite</span>
+                    <span className="eyebrow text-indigo-600">Noite</span>
                     <span className="text-[10px] text-muted-foreground">({groups.noite.length})</span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -899,6 +899,7 @@ export default function SchedulesPage() {
             </div>
           ))}
         </div>
+
       )}
     </div>
   );
