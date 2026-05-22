@@ -399,7 +399,7 @@ export default function IndexPage() {
                           <div
                             key={s.id}
                             className={cn(
-                              "rounded-lg p-3 transition-all hover:shadow-md",
+                              "rounded-lg p-3 sm:p-3.5 transition-all hover:shadow-md",
                               "bg-gradient-to-r from-white to-muted/20 dark:from-card dark:to-muted/10",
                               s.status === "Recusado" && "opacity-50"
                             )}
@@ -426,6 +426,7 @@ export default function IndexPage() {
                                     {ministry?.name || "?"}
                                   </span>
                                 </div>
+
                                 {/* Members or edit mode */}
                                 {isEditing ? (
                                   <div className="space-y-2">
