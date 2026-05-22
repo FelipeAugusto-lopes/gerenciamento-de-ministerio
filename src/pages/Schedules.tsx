@@ -474,7 +474,7 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-stack animate-fade-in">
       {savedFeedback && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
@@ -488,26 +488,27 @@ export default function SchedulesPage() {
           <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-11 px-3 relative">
-            <Bell className="h-5 w-5" />
+          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-10 sm:h-11 px-3 relative">
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
             {unreadNotifications > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground font-bold">{unreadNotifications}</span>
             )}
           </Button>
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-11 px-4 relative">
-            <Filter className="h-4 w-4" /> Filtros
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-10 sm:h-11 px-3 sm:px-4 relative">
+            <Filter className="h-4 w-4" /> <span className="hidden sm:inline">Filtros</span>
             {activeFilters > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">{activeFilters}</span>
             )}
           </Button>
-          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-11 px-4">
-            <Wand2 className="h-4 w-4" /> Gerar
+          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-10 sm:h-11 px-3 sm:px-4">
+            <Wand2 className="h-4 w-4" /> <span className="hidden sm:inline">Gerar</span>
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-11 px-5 shadow-md hover:shadow-lg transition-shadow">
-            <Plus className="h-5 w-5" /> Nova
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-10 sm:h-11 px-4 sm:px-5 shadow-md hover:shadow-lg transition-shadow">
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" /> Nova
           </Button>
         </div>
       </div>
+
 
       {/* Search bar - always visible */}
       <div className="relative">
