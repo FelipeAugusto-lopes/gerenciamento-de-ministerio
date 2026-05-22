@@ -474,7 +474,7 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-stack animate-fade-in">
       {savedFeedback && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 shadow-lg animate-fade-in">
           <CheckCircle2 className="h-5 w-5" /> {savedFeedback}
@@ -488,26 +488,27 @@ export default function SchedulesPage() {
           <p className="page-subtitle">{filtered.length} escala{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-11 px-3 relative">
-            <Bell className="h-5 w-5" />
+          <Button variant="outline" onClick={() => setShowNotifications(true)} className="gap-2 h-10 sm:h-11 px-3 relative">
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
             {unreadNotifications > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground font-bold">{unreadNotifications}</span>
             )}
           </Button>
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-11 px-4 relative">
-            <Filter className="h-4 w-4" /> Filtros
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-10 sm:h-11 px-3 sm:px-4 relative">
+            <Filter className="h-4 w-4" /> <span className="hidden sm:inline">Filtros</span>
             {activeFilters > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">{activeFilters}</span>
             )}
           </Button>
-          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-11 px-4">
-            <Wand2 className="h-4 w-4" /> Gerar
+          <Button variant="secondary" onClick={() => setShowGenerate(true)} className="gap-2 h-10 sm:h-11 px-3 sm:px-4">
+            <Wand2 className="h-4 w-4" /> <span className="hidden sm:inline">Gerar</span>
           </Button>
-          <Button onClick={() => setShowAdd(true)} className="gap-2 h-11 px-5 shadow-md hover:shadow-lg transition-shadow">
-            <Plus className="h-5 w-5" /> Nova
+          <Button onClick={() => setShowAdd(true)} className="gap-2 h-10 sm:h-11 px-4 sm:px-5 shadow-md hover:shadow-lg transition-shadow">
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" /> Nova
           </Button>
         </div>
       </div>
+
 
       {/* Search bar - always visible */}
       <div className="relative">
@@ -527,7 +528,7 @@ export default function SchedulesPage() {
 
       {/* Stat cards */}
       {filtered.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {(["Pendente", "Confirmado", "Recusado", "Concluído"] as ScheduleStatus[]).map(st => {
             const c = statusConfig[st];
             const Icon = c.icon;
@@ -538,13 +539,14 @@ export default function SchedulesPage() {
                 className={cn("stat-card", c.bg, "cursor-default")}
               >
                 <Icon className={cn("h-5 w-5 mx-auto mb-1", c.color)} />
-                <p className={cn("text-2xl font-bold", c.color)}>{statusSummary[st]}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{c.label}</p>
+                <p className={cn("text-xl sm:text-2xl font-bold", c.color)}>{statusSummary[st]}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{c.label}</p>
               </button>
             );
           })}
         </div>
       )}
+
 
       {/* Filters */}
       {showFilters && (
@@ -844,17 +846,17 @@ export default function SchedulesPage() {
           <p className="text-sm">Nenhuma escala encontrada</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           {groupedByDate.map(([date, groups]) => (
-            <div key={date} className="space-y-3">
+            <div key={date} className="section-stack">
               {/* Date header */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5">
                   <Calendar className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-primary text-sm">{formatDate(date)}</span>
                 </div>
                 <span className="text-xs text-muted-foreground">{getDayOfWeek(date)}</span>
-                <div className="flex-1 h-px bg-border" />
+                <div className="flex-1 h-px bg-border min-w-[12px]" />
                 {[...groups.manhã, ...groups.noite].some(s => s.status !== "Confirmado") && (
                   <Button
                     size="sm"
@@ -872,7 +874,7 @@ export default function SchedulesPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 ml-1">
                     <Sun className="h-4 w-4 text-amber-500" />
-                    <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Manhã</span>
+                    <span className="eyebrow text-amber-600">Manhã</span>
                     <span className="text-[10px] text-muted-foreground">({groups.manhã.length})</span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -886,7 +888,7 @@ export default function SchedulesPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 ml-1">
                     <Moon className="h-4 w-4 text-indigo-500" />
-                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Noite</span>
+                    <span className="eyebrow text-indigo-600">Noite</span>
                     <span className="text-[10px] text-muted-foreground">({groups.noite.length})</span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -897,6 +899,7 @@ export default function SchedulesPage() {
             </div>
           ))}
         </div>
+
       )}
     </div>
   );

@@ -217,7 +217,7 @@ export default function IndexPage() {
   }, [selectedSchedules, ministries]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="page-stack animate-fade-in">
       <div>
         <h1 className="page-title">Calendário de Escalas</h1>
         <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
@@ -225,14 +225,14 @@ export default function IndexPage() {
 
       {/* Calendar */}
       <div className="content-card">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <Button variant="ghost" size="icon" onClick={prevMonth}>
+        <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="font-display text-lg font-bold text-foreground">
+          <h2 className="section-title">
             {MONTH_NAMES[month]} {year}
           </h2>
-          <Button variant="ghost" size="icon" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -262,7 +262,7 @@ export default function IndexPage() {
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
                 className={cn(
-                  "relative min-h-[70px] sm:min-h-[90px] border-b border-r last:border-r-0 p-1 sm:p-2 text-left transition-colors hover:bg-muted/50",
+                  "relative min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0 p-1.5 sm:p-2 text-left transition-colors hover:bg-muted/50",
                   isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
                   isToday && !isSelected && "bg-accent/10"
                 )}
@@ -307,29 +307,30 @@ export default function IndexPage() {
 
       {/* Selected date detail — modern shift cards */}
       {selectedDate && (
-        <div className="animate-fade-in space-y-4">
+        <div className="animate-fade-in section-stack">
           {/* Date header */}
           <div className="content-card">
-            <div className="flex items-center justify-between px-5 py-4 flex-wrap gap-2">
+            <div className="card-header-pad flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h3 className="font-display text-xl font-bold text-foreground">
+                <h3 className="card-title">
                   {formatDate(selectedDate)}
                 </h3>
-                <p className="text-sm text-muted-foreground mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
+                <p className="meta-text mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
+                <Button variant="outline" size="icon" className="icon-btn" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
                   <FileText className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon" className="h-10 w-10" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
+                <Button variant="outline" size="icon" className="icon-btn" title="Compartilhar WhatsApp" onClick={() => shareViaWhatsApp({ schedules, members, ministries }, selectedDate)}>
                   <Share2 className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-12 px-5 text-base">
-                  <Plus className="h-5 w-5" /> Nova Escala
+                <Button onClick={() => setShowAddDialog(true)} className="gap-2 h-10 sm:h-11 px-4 sm:px-5 text-sm sm:text-base">
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" /> Nova Escala
                 </Button>
               </div>
             </div>
           </div>
+
 
           {selectedSchedules.length === 0 ? (
             <div className="content-card flex flex-col items-center py-12 text-muted-foreground">
@@ -338,7 +339,7 @@ export default function IndexPage() {
               <p className="text-xs mt-1 opacity-60">Clique em "Nova Escala" para começar</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {groupedByShift.map(group => {
                 const isManha = group.shift === "Manhã";
                 return (
@@ -353,22 +354,22 @@ export default function IndexPage() {
                   >
                     {/* Shift header */}
                     <div className={cn(
-                      "px-5 py-4 flex items-center gap-3",
+                      "card-header-pad flex items-center gap-3",
                       isManha
                         ? "bg-amber-100/60 dark:bg-amber-900/20"
                         : "bg-indigo-100/60 dark:bg-indigo-900/20"
                     )}>
                       <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-lg",
+                        "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-base sm:text-lg shrink-0",
                         isManha
                           ? "bg-amber-200 dark:bg-amber-800/40"
                           : "bg-indigo-200 dark:bg-indigo-800/40"
                       )}>
                         {isManha ? "☀️" : "🌙"}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h4 className={cn(
-                          "font-display text-base font-bold",
+                          "section-title",
                           isManha ? "text-amber-800 dark:text-amber-300" : "text-indigo-800 dark:text-indigo-300"
                         )}>
                           Turno da {group.shift}
@@ -383,10 +384,11 @@ export default function IndexPage() {
                     </div>
 
                     {/* Schedule items */}
-                    <div className="divide-y divide-border/50 p-2 space-y-1">
+                    <div className="p-2 sm:p-3 space-y-2">
                       {group.schedules.map(s => {
                         const ministry = ministries.find(m => m.id === s.ministryId);
                         const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?");
+
                         const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "";
                         const isEditing = editingScheduleId === s.id;
                         const editableMembers = ministry ? members.filter(m => m.ministryIds.includes(s.ministryId)) : members;
@@ -397,7 +399,7 @@ export default function IndexPage() {
                           <div
                             key={s.id}
                             className={cn(
-                              "rounded-lg p-3 transition-all hover:shadow-md",
+                              "rounded-lg p-3 sm:p-3.5 transition-all hover:shadow-md",
                               "bg-gradient-to-r from-white to-muted/20 dark:from-card dark:to-muted/10",
                               s.status === "Recusado" && "opacity-50"
                             )}
@@ -424,6 +426,7 @@ export default function IndexPage() {
                                     {ministry?.name || "?"}
                                   </span>
                                 </div>
+
                                 {/* Members or edit mode */}
                                 {isEditing ? (
                                   <div className="space-y-2">
