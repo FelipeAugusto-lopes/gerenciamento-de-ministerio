@@ -224,6 +224,9 @@ export default function IndexPage() {
         <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
       </div>
 
+      <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
+
+
       {/* Calendar */}
       <div className="content-card">
         <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
