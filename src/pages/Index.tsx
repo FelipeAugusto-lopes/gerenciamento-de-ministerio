@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { HomeDashboard } from "@/components/HomeDashboard";
 
 const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
 
@@ -222,6 +223,9 @@ export default function IndexPage() {
         <h1 className="page-title">Calendário de Escalas</h1>
         <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
       </div>
+
+      <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
+
 
       {/* Calendar */}
       <div className="content-card">
