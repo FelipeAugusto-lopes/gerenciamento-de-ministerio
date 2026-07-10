@@ -97,9 +97,11 @@ export default function IndexPage() {
     return schedules.filter(s => s.date === selectedDate).sort((a, b) => {
       const shiftOrder = a.shift.localeCompare(b.shift);
       if (shiftOrder !== 0) return shiftOrder;
-      return a.ministryId.localeCompare(b.ministryId);
+      const minA = ministries.find(m => m.id === a.ministryId);
+      const minB = ministries.find(m => m.id === b.ministryId);
+      return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
     });
-  }, [selectedDate, schedules]);
+  }, [selectedDate, schedules, ministries]);
 
   const availableMembers = useMemo(() => {
     if (!newForm.ministryId) return members;
