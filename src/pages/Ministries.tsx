@@ -19,6 +19,8 @@ export default function MinistriesPage() {
   const [newColor, setNewColor] = useState(0);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
+  const sortedMinistries = useMemo(() => sortMinistries(ministries), [ministries]);
+
   const showSaved = () => { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 2000); };
 
   const handleAdd = () => {
