@@ -251,9 +251,7 @@ export default function IndexPage() {
             const uniqueMinistries = [...new Set(daySchedules.map(s => s.ministryId))].sort((a, b) => {
               const minA = ministries.find(m => m.id === a);
               const minB = ministries.find(m => m.id === b);
-              const idxA = minA ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minA.name.toLowerCase()) : 999;
-              const idxB = minB ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minB.name.toLowerCase()) : 999;
-              return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+              return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
             });
 
             return (
