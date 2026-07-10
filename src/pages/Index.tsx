@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
-import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
+import { getMinistryStyle, formatDate, getDayOfWeek, getMinistryOrder } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
 import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil } from "lucide-react";
 import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
@@ -25,11 +25,6 @@ const statusConfig: Record<ScheduleStatus, { icon: typeof Clock; color: string; 
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-const MINISTRY_ORDER = [
-  "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
-  "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
-];
 
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
