@@ -196,11 +196,9 @@ export default function IndexPage() {
 
   const todayStr = today.toISOString().split("T")[0];
 
-  const getMinistryOrder = (ministryId: string) => {
+  const getSelectedMinistryOrder = (ministryId: string) => {
     const min = ministries.find(m => m.id === ministryId);
-    if (!min) return 999;
-    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === min.name.toLowerCase());
-    return idx === -1 ? 999 : idx;
+    return getMinistryOrder(min?.name || "");
   };
 
   // Group selected schedules by shift for the table view
@@ -210,7 +208,7 @@ export default function IndexPage() {
       shift,
       schedules: selectedSchedules
         .filter(s => s.shift === shift)
-        .sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId)),
+        .sort((a, b) => getSelectedMinistryOrder(a.ministryId) - getSelectedMinistryOrder(b.ministryId)),
     })).filter(g => g.schedules.length > 0);
   }, [selectedSchedules, ministries]);
 
