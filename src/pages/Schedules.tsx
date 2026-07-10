@@ -113,7 +113,7 @@ export default function SchedulesPage() {
       group.manhã.sort((a, b) => getScheduleMinistryOrder(a.ministryId) - getScheduleMinistryOrder(b.ministryId));
       group.noite.sort((a, b) => getScheduleMinistryOrder(a.ministryId) - getScheduleMinistryOrder(b.ministryId));
     });
-    return map;
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered, ministries]);
 
   const statusSummary = useMemo(() => {
