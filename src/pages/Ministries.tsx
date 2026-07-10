@@ -76,7 +76,7 @@ export default function MinistriesPage() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ministries.map(m => (
+        {sortedMinistries.map(m => (
           <div key={m.id} className="item-card" style={{ borderLeftWidth: 4, borderLeftColor: `hsl(${MINISTRY_COLORS[m.colorIndex % MINISTRY_COLORS.length]})` }}>
             {editId === m.id ? (
               <div className="space-y-3">
