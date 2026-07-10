@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
-import { getMinistryStyle } from "@/lib/helpers";
+import { getMinistryStyle, sortMinistries } from "@/lib/helpers";
 import { MINISTRY_COLORS } from "@/types";
 import { Plus, Pencil, Trash2, X, Check, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
