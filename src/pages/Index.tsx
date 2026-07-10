@@ -220,7 +220,7 @@ export default function IndexPage() {
           <img
             src="/escala-ina-cover.png"
             alt="Escala INA — Servir juntos, transformar vidas"
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover object-[center_70%]"
           />
         </div>
       </div>
