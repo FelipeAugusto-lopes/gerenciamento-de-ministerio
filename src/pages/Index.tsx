@@ -214,9 +214,15 @@ export default function IndexPage() {
 
   return (
     <div className="page-stack animate-fade-in">
-      <div>
-        <h1 className="page-title">Calendário de Escalas</h1>
-        <p className="page-subtitle">Selecione uma data para ver ou criar escalas</p>
+      {/* Hero cover */}
+      <div className="content-card overflow-hidden p-0">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] max-h-[320px]">
+          <img
+            src="/escala-ina-cover.png"
+            alt="Escala INA — Servir juntos, transformar vidas"
+            className="w-full h-full object-cover object-[center_70%]"
+          />
+        </div>
       </div>
 
       <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
