@@ -115,10 +115,6 @@ export default function SchedulesPage() {
     });
     return map;
   }, [filtered, ministries]);
-      group.noite.sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId));
-    });
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [filtered, ministries]);
 
   const statusSummary = useMemo(() => {
     const counts = { Pendente: 0, Confirmado: 0, Recusado: 0, Concluído: 0 };
