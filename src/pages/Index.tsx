@@ -218,7 +218,7 @@ export default function IndexPage() {
       <div className="content-card overflow-hidden p-0">
         <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] max-h-[320px]">
           <img
-            src={coverAsset.url}
+            src="/escala-ina-cover.png"
             alt="Escala INA — Servir juntos, transformar vidas"
             className="w-full h-full object-cover object-center"
           />
