@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
-import { getMinistryStyle, getDayOfWeek, formatDate } from "@/lib/helpers";
+import { getMinistryStyle, getDayOfWeek, formatDate, getMinistryOrder } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
 import {
   Plus, Trash2, Filter, X, Calendar, AlertTriangle, Wand2, History, Search,
@@ -94,16 +94,9 @@ export default function SchedulesPage() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [schedules, filterDate, filterMinistry, filterShift, searchQuery, ministries, members]);
 
-  // Fixed ministry display order
-  const MINISTRY_ORDER = [
-    "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
-    "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
-  ];
-
-  const getMinistryOrder = (ministryId: string) => {
+  const getScheduleMinistryOrder = (ministryId: string) => {
     const name = ministries.find(m => m.id === ministryId)?.name || "";
-    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === name.toLowerCase());
-    return idx === -1 ? MINISTRY_ORDER.length : idx;
+    return getMinistryOrder(name);
   };
 
   // Group by date then shift, sorted by ministry order
@@ -117,8 +110,8 @@ export default function SchedulesPage() {
     });
     // Sort each shift group by ministry order
     map.forEach(group => {
-      group.manhã.sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId));
-      group.noite.sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId));
+      group.manhã.sort((a, b) => getScheduleMinistryOrder(a.ministryId) - getScheduleMinistryOrder(b.ministryId));
+      group.noite.sort((a, b) => getScheduleMinistryOrder(a.ministryId) - getScheduleMinistryOrder(b.ministryId));
     });
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered, ministries]);

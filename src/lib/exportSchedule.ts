@@ -1,20 +1,10 @@
 import { Schedule, Member, Ministry, MINISTRY_COLORS } from "@/types";
-import { formatDate, getDayOfWeek } from "@/lib/helpers";
+import { formatDate, getDayOfWeek, getMinistryOrder } from "@/lib/helpers";
 
 interface ExportData {
   schedules: Schedule[];
   members: Member[];
   ministries: Ministry[];
-}
-
-const MINISTRY_ORDER = [
-  "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
-  "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
-];
-
-function getMinistryOrder(name: string): number {
-  const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === name.toLowerCase());
-  return idx >= 0 ? idx : 999;
 }
 
 function getDaySchedules(schedules: Schedule[], date: string) {

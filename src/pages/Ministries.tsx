@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
-import { getMinistryStyle } from "@/lib/helpers";
+import { getMinistryStyle, sortMinistries } from "@/lib/helpers";
 import { MINISTRY_COLORS } from "@/types";
 import { Plus, Pencil, Trash2, X, Check, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ export default function MinistriesPage() {
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(0);
   const [savedFeedback, setSavedFeedback] = useState(false);
+
+  const sortedMinistries = useMemo(() => sortMinistries(ministries), [ministries]);
 
   const showSaved = () => { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 2000); };
 
@@ -74,7 +76,7 @@ export default function MinistriesPage() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ministries.map(m => (
+        {sortedMinistries.map(m => (
           <div key={m.id} className="item-card" style={{ borderLeftWidth: 4, borderLeftColor: `hsl(${MINISTRY_COLORS[m.colorIndex % MINISTRY_COLORS.length]})` }}>
             {editId === m.id ? (
               <div className="space-y-3">

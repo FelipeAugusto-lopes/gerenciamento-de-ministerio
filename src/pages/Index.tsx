@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
-import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
+import { getMinistryStyle, formatDate, getDayOfWeek, getMinistryOrder } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
 import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil } from "lucide-react";
 import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
@@ -25,11 +25,6 @@ const statusConfig: Record<ScheduleStatus, { icon: typeof Clock; color: string; 
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-const MINISTRY_ORDER = [
-  "Voluntariado", "Louvor", "Áudio", "Mídia Story", "Mídia Fotos",
-  "Projeção", "Transmissão", "Berçário", "INA Kids 3-6", "INA Kids 7-8", "INA Kids 9-12",
-];
 
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -102,9 +97,11 @@ export default function IndexPage() {
     return schedules.filter(s => s.date === selectedDate).sort((a, b) => {
       const shiftOrder = a.shift.localeCompare(b.shift);
       if (shiftOrder !== 0) return shiftOrder;
-      return a.ministryId.localeCompare(b.ministryId);
+      const minA = ministries.find(m => m.id === a.ministryId);
+      const minB = ministries.find(m => m.id === b.ministryId);
+      return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
     });
-  }, [selectedDate, schedules]);
+  }, [selectedDate, schedules, ministries]);
 
   const availableMembers = useMemo(() => {
     if (!newForm.ministryId) return members;
@@ -199,11 +196,9 @@ export default function IndexPage() {
 
   const todayStr = today.toISOString().split("T")[0];
 
-  const getMinistryOrder = (ministryId: string) => {
+  const getSelectedMinistryOrder = (ministryId: string) => {
     const min = ministries.find(m => m.id === ministryId);
-    if (!min) return 999;
-    const idx = MINISTRY_ORDER.findIndex(n => n.toLowerCase() === min.name.toLowerCase());
-    return idx === -1 ? 999 : idx;
+    return getMinistryOrder(min?.name || "");
   };
 
   // Group selected schedules by shift for the table view
@@ -213,7 +208,7 @@ export default function IndexPage() {
       shift,
       schedules: selectedSchedules
         .filter(s => s.shift === shift)
-        .sort((a, b) => getMinistryOrder(a.ministryId) - getMinistryOrder(b.ministryId)),
+        .sort((a, b) => getSelectedMinistryOrder(a.ministryId) - getSelectedMinistryOrder(b.ministryId)),
     })).filter(g => g.schedules.length > 0);
   }, [selectedSchedules, ministries]);
 
@@ -256,9 +251,7 @@ export default function IndexPage() {
             const uniqueMinistries = [...new Set(daySchedules.map(s => s.ministryId))].sort((a, b) => {
               const minA = ministries.find(m => m.id === a);
               const minB = ministries.find(m => m.id === b);
-              const idxA = minA ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minA.name.toLowerCase()) : 999;
-              const idxB = minB ? MINISTRY_ORDER.findIndex(n => n.toLowerCase() === minB.name.toLowerCase()) : 999;
-              return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+              return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
             });
 
             return (
