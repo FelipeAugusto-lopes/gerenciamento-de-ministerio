@@ -124,7 +124,7 @@ export function HomeDashboard({ year, month }: Props) {
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="pb-2 font-medium">Período</th>
-                <th className="pb-2 font-medium">Membro mais escalado</th>
+                <th className="pb-2 font-medium">Top 3 membros</th>
                 <th className="pb-2 font-medium text-right">Escalas</th>
               </tr>
             </thead>
@@ -132,40 +132,54 @@ export function HomeDashboard({ year, month }: Props) {
               {[
                 { label: MONTH_NAMES[prevMonth], sub: "Mês anterior", data: topPrev, highlight: false },
                 { label: MONTH_NAMES[month], sub: "Mês atual", data: topCurrent, highlight: true },
-              ].map(row => (
-                <tr key={row.sub} className="align-middle">
-                  <td className="py-3 pr-2">
-                    <div className={cn("text-sm font-medium", row.highlight && "text-primary")}>
-                      {row.label}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{row.sub}</div>
-                  </td>
-                  <td className="py-3 pr-2">
-                    {row.data ? (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={cn(
-                            "h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
-                            row.highlight
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-foreground"
-                          )}
-                        >
-                          {initialsOf(row.data.member.name)}
-                        </span>
-                        <span className="text-sm font-medium truncate">{row.data.member.name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sem dados</span>
-                    )}
-                  </td>
-                  <td className="py-3 text-right">
-                    <span className="text-sm font-semibold tabular-nums">
-                      {row.data ? row.data.count : "—"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              ].flatMap(row =>
+                row.data.length === 0
+                  ? [(
+                      <tr key={row.sub} className="align-middle">
+                        <td className="py-3 pr-2">
+                          <div className={cn("text-sm font-medium", row.highlight && "text-primary")}>
+                            {row.label}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">{row.sub}</div>
+                        </td>
+                        <td className="py-3 pr-2" colSpan={2}>
+                          <span className="text-xs text-muted-foreground">Sem dados</span>
+                        </td>
+                      </tr>
+                    )]
+                  : row.data.map((entry, idx) => (
+                      <tr key={`${row.sub}-${entry.member.id}`} className="align-middle">
+                        <td className="py-3 pr-2">
+                          {idx === 0 ? (
+                            <>
+                              <div className={cn("text-sm font-medium", row.highlight && "text-primary")}>
+                                {row.label}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">{row.sub}</div>
+                            </>
+                          ) : null}
+                        </td>
+                        <td className="py-3 pr-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={cn(
+                                "h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+                                row.highlight && idx === 0
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-foreground"
+                              )}
+                            >
+                              {idx === 0 ? initialsOf(entry.member.name) : `${idx + 1}º`}
+                            </span>
+                            <span className="text-sm font-medium truncate">{entry.member.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="text-sm font-semibold tabular-nums">{entry.count}</span>
+                        </td>
+                      </tr>
+                    ))
+              )}
             </tbody>
           </table>
         </div>
