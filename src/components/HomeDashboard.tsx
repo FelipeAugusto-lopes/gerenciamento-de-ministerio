@@ -2,8 +2,7 @@ import { useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { MINISTRY_COLORS } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
-import { formatDate, getDayOfWeek } from "@/lib/helpers";
-import { CalendarClock, TrendingUp, Users } from "lucide-react";
+import { TrendingUp, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MONTH_NAMES = [
@@ -17,10 +16,8 @@ interface Props {
   onSelectDate?: (date: string) => void;
 }
 
-export function HomeDashboard({ year, month, onSelectDate }: Props) {
+export function HomeDashboard({ year, month }: Props) {
   const { schedules, ministries, members } = useStore();
-
-  const todayStr = new Date().toISOString().split("T")[0];
 
   const monthSchedules = useMemo(
     () =>
@@ -31,15 +28,16 @@ export function HomeDashboard({ year, month, onSelectDate }: Props) {
     [schedules, year, month]
   );
 
-  const upcoming = useMemo(
+  // Previous month (relative to displayed month)
+  const prevYear = month === 0 ? year - 1 : year;
+  const prevMonth = month === 0 ? 11 : month - 1;
+  const prevMonthSchedules = useMemo(
     () =>
-      [...schedules]
-        .filter(s => s.date >= todayStr)
-        .sort((a, b) =>
-          a.date === b.date ? a.shift.localeCompare(b.shift) : a.date.localeCompare(b.date)
-        )
-        .slice(0, 4),
-    [schedules, todayStr]
+      schedules.filter(s => {
+        const d = new Date(s.date + "T12:00:00");
+        return d.getFullYear() === prevYear && d.getMonth() === prevMonth;
+      }),
+    [schedules, prevYear, prevMonth]
   );
 
   const topMinistries = useMemo(() => {
@@ -52,68 +50,27 @@ export function HomeDashboard({ year, month, onSelectDate }: Props) {
       .filter(x => x.ministry);
   }, [monthSchedules, ministries]);
 
-  const topMembers = useMemo(() => {
+  const getTopMember = (list: typeof schedules) => {
     const map = new Map<string, number>();
-    monthSchedules.forEach(s =>
-      s.memberIds.forEach(mid => map.set(mid, (map.get(mid) || 0) + 1))
-    );
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => ({ member: members.find(m => m.id === id), count }))
-      .filter(x => x.member);
-  }, [monthSchedules, members]);
+    list.forEach(s => s.memberIds.forEach(mid => map.set(mid, (map.get(mid) || 0) + 1)));
+    const sorted = [...map.entries()].sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return null;
+    const [id, count] = sorted[0];
+    const member = members.find(m => m.id === id);
+    if (!member) return null;
+    return { member, count };
+  };
+
+  const topCurrent = useMemo(() => getTopMember(monthSchedules), [monthSchedules, members]);
+  const topPrev = useMemo(() => getTopMember(prevMonthSchedules), [prevMonthSchedules, members]);
 
   const maxMinistry = topMinistries[0]?.count || 1;
-  const maxMember = topMembers[0]?.count || 1;
+
+  const initialsOf = (name: string) =>
+    name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-      {/* Próximas escalas */}
-      <div className="content-card">
-        <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
-          <CalendarClock className="h-4 w-4 text-primary" />
-          <h3 className="section-title">Próximas escalas</h3>
-        </div>
-        <div className="p-3 sm:p-4 space-y-2">
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Sem escalas futuras.
-            </p>
-          ) : (
-            upcoming.map(s => {
-              const ministry = ministries.find(m => m.id === s.ministryId);
-              if (!ministry) return null;
-              const color = MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length];
-              const Icon = getMinistryIcon(ministry.name);
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => onSelectDate?.(s.date)}
-                  className="w-full flex items-center gap-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors p-2.5 text-left"
-                >
-                  <span
-                    className="h-9 w-9 rounded-full flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `hsl(${color} / 0.18)`, color: `hsl(${color})` }}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{ministry.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {formatDate(s.date)} · {getDayOfWeek(s.date)} · {s.shift}
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {s.memberIds.length} {s.memberIds.length === 1 ? "membro" : "membros"}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
       {/* Ministérios mais ativos */}
       <div className="content-card">
         <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
@@ -154,56 +111,61 @@ export function HomeDashboard({ year, month, onSelectDate }: Props) {
         </div>
       </div>
 
-      {/* Membros com mais escalas */}
+      {/* Destaques: membro mais escalado — mês anterior vs mês atual */}
       <div className="content-card">
         <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
-          <Users className="h-4 w-4 text-primary" />
-          <h3 className="section-title">Membros mais escalados</h3>
+          <Crown className="h-4 w-4 text-primary" />
+          <h3 className="section-title">Destaques do mês</h3>
         </div>
-        <div className="p-3 sm:p-4 space-y-2">
-          <p className="eyebrow">{MONTH_NAMES[month]}</p>
-          {topMembers.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Sem dados no mês.</p>
-          ) : (
-            topMembers.map(({ member, count }, idx) => {
-              const initials = member!.name
-                .split(" ")
-                .map(p => p[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase();
-              const pct = (count / maxMember) * 100;
-              return (
-                <div
-                  key={member!.id}
-                  className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors"
-                >
-                  <span
-                    className={cn(
-                      "h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
-                      idx === 0
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    )}
-                  >
-                    {initials}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{member!.name}</p>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
-                      <div
-                        className="h-full rounded-full bg-primary/70 transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
+        <div className="p-3 sm:p-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="pb-2 font-medium">Período</th>
+                <th className="pb-2 font-medium">Membro mais escalado</th>
+                <th className="pb-2 font-medium text-right">Escalas</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {[
+                { label: MONTH_NAMES[prevMonth], sub: "Mês anterior", data: topPrev, highlight: false },
+                { label: MONTH_NAMES[month], sub: "Mês atual", data: topCurrent, highlight: true },
+              ].map(row => (
+                <tr key={row.sub} className="align-middle">
+                  <td className="py-3 pr-2">
+                    <div className={cn("text-sm font-medium", row.highlight && "text-primary")}>
+                      {row.label}
                     </div>
-                  </div>
-                  <span className="text-xs tabular-nums text-muted-foreground shrink-0">
-                    {count}
-                  </span>
-                </div>
-              );
-            })
-          )}
+                    <div className="text-[11px] text-muted-foreground">{row.sub}</div>
+                  </td>
+                  <td className="py-3 pr-2">
+                    {row.data ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={cn(
+                            "h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+                            row.highlight
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-foreground"
+                          )}
+                        >
+                          {initialsOf(row.data.member.name)}
+                        </span>
+                        <span className="text-sm font-medium truncate">{row.data.member.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sem dados</span>
+                    )}
+                  </td>
+                  <td className="py-3 text-right">
+                    <span className="text-sm font-semibold tabular-nums">
+                      {row.data ? row.data.count : "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
