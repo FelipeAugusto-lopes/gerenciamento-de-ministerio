@@ -50,19 +50,21 @@ export function HomeDashboard({ year, month }: Props) {
       .filter(x => x.ministry);
   }, [monthSchedules, ministries]);
 
-  const getTopMember = (list: typeof schedules) => {
+  const getTopMembers = (list: typeof schedules, n = 3) => {
     const map = new Map<string, number>();
     list.forEach(s => s.memberIds.forEach(mid => map.set(mid, (map.get(mid) || 0) + 1)));
-    const sorted = [...map.entries()].sort((a, b) => b[1] - a[1]);
-    if (sorted.length === 0) return null;
-    const [id, count] = sorted[0];
-    const member = members.find(m => m.id === id);
-    if (!member) return null;
-    return { member, count };
+    return [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([id, count]) => {
+        const member = members.find(m => m.id === id);
+        return member ? { member, count } : null;
+      })
+      .filter((x): x is { member: typeof members[number]; count: number } => !!x);
   };
 
-  const topCurrent = useMemo(() => getTopMember(monthSchedules), [monthSchedules, members]);
-  const topPrev = useMemo(() => getTopMember(prevMonthSchedules), [prevMonthSchedules, members]);
+  const topCurrent = useMemo(() => getTopMembers(monthSchedules), [monthSchedules, members]);
+  const topPrev = useMemo(() => getTopMembers(prevMonthSchedules), [prevMonthSchedules, members]);
 
   const maxMinistry = topMinistries[0]?.count || 1;
 
