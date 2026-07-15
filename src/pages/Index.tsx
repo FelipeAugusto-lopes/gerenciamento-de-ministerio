@@ -215,15 +215,54 @@ export default function IndexPage() {
   return (
     <div className="page-stack animate-fade-in">
       {/* Hero cover */}
-      <div className="content-card overflow-hidden p-0">
-        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] max-h-[320px]">
-          <img
-            src="/escala-ina-cover.png"
-            alt="Escala INA — Servir juntos, transformar vidas"
-            className="w-full h-full object-cover object-[center_70%]"
-          />
-        </div>
-      </div>
+      {(() => {
+        const monthCount = Array.from(schedulesByDate.values()).reduce((a, l) => a + l.length, 0);
+        const todaySchedules = schedules.filter(s => s.date === todayStr);
+        const confirmedToday = todaySchedules.filter(s => s.status === "Confirmado").length;
+        return (
+          <div className="content-card overflow-hidden p-0 shadow-elegant animate-fade-in">
+            <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] max-h-[340px]">
+              <img
+                src="/escala-ina-cover.png"
+                alt="Escala INA — Servir juntos, transformar vidas"
+                className="w-full h-full object-cover object-[center_70%]"
+              />
+              <div className="absolute inset-0 hero-overlay" />
+              <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 md:p-8">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/80 mb-1 sm:mb-2">
+                  {MONTH_NAMES[month]} {year}
+                </p>
+                <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-md leading-tight">
+                  Servir juntos,<br className="sm:hidden" /> transformar vidas
+                </h1>
+                <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-md px-3 py-1.5 text-xs sm:text-sm font-medium text-white ring-1 ring-white/25">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {monthCount} escala{monthCount !== 1 ? "s" : ""} no mês
+                  </span>
+                  {todaySchedules.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/90 px-3 py-1.5 text-xs sm:text-sm font-semibold text-accent-foreground ring-1 ring-white/30">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Hoje · {confirmedToday}/{todaySchedules.length} confirmadas
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      const t = new Date();
+                      setYear(t.getFullYear());
+                      setMonth(t.getMonth());
+                      setSelectedDate(todayStr);
+                    }}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white text-primary hover:bg-white/90 transition-colors px-4 py-1.5 text-xs sm:text-sm font-semibold shadow-sm"
+                  >
+                    Ver hoje
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
 
