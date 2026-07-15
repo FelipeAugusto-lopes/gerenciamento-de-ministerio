@@ -264,19 +264,61 @@ export default function IndexPage() {
         );
       })()}
 
+      {/* Quick stats */}
+      {(() => {
+        const monthSchedules = Array.from(schedulesByDate.values()).flat();
+        const confirmed = monthSchedules.filter(s => s.status === "Confirmado").length;
+        const pending = monthSchedules.filter(s => s.status === "Pendente").length;
+        const activeMembers = new Set(monthSchedules.flatMap(s => s.memberIds)).size;
+        const items = [
+          { label: "Escalas", value: monthSchedules.length, tone: "primary" as const, Icon: Calendar },
+          { label: "Confirmadas", value: confirmed, tone: "emerald" as const, Icon: CheckCircle2 },
+          { label: "Pendentes", value: pending, tone: "amber" as const, Icon: Clock },
+          { label: "Membros ativos", value: activeMembers, tone: "accent" as const, Icon: UserPlus },
+        ];
+        const toneMap = {
+          primary: "from-primary/15 to-primary/5 text-primary",
+          emerald: "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400",
+          amber: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400",
+          accent: "from-accent/20 to-accent/5 text-accent-foreground",
+        };
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+            {items.map(({ label, value, tone, Icon }, idx) => (
+              <div
+                key={label}
+                className={cn(
+                  "stat-card bg-gradient-to-br border-border/60 text-left stagger-item",
+                  toneMap[tone]
+                )}
+                style={{ animationDelay: `${idx * 60}ms` }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="eyebrow">{label}</span>
+                  <Icon className="h-4 w-4 opacity-70" />
+                </div>
+                <div className="mt-1.5 font-display text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
+                  {value}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
 
 
       {/* Calendar */}
       <div className="content-card">
         <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth}>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth} aria-label="Mês anterior">
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <h2 className="section-title">
             {MONTH_NAMES[month]} {year}
           </h2>
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth} aria-label="Próximo mês">
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -293,29 +335,47 @@ export default function IndexPage() {
             const daySchedules = schedulesByDate.get(ds) || [];
             const isToday = ds === todayStr;
             const isSelected = ds === selectedDate;
+            const hasManha = daySchedules.some(s => s.shift === "Manhã");
+            const hasNoite = daySchedules.some(s => s.shift === "Noite");
             const uniqueMinistries = [...new Set(daySchedules.map(s => s.ministryId))].sort((a, b) => {
               const minA = ministries.find(m => m.id === a);
               const minB = ministries.find(m => m.id === b);
               return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
             });
+            const previewText = daySchedules.length > 0
+              ? uniqueMinistries
+                  .map(mid => ministries.find(m => m.id === mid)?.name)
+                  .filter(Boolean)
+                  .join(" · ")
+              : "";
 
             return (
               <button
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
+                title={previewText || undefined}
+                aria-label={`Dia ${day}${daySchedules.length ? ` — ${daySchedules.length} escala(s)` : ""}`}
                 className={cn(
                   "group relative min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0 p-1.5 sm:p-2 text-left transition-all duration-200 hover:bg-muted/50 hover:z-10 hover:shadow-md",
                   isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
                   isToday && !isSelected && "bg-accent/10"
                 )}
               >
-                <span className={cn(
-                  "text-xs sm:text-sm font-medium relative",
-                  isToday && "today-pulse bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center shadow-sm",
-                  !isToday && "text-foreground"
-                )}>
-                  {day}
-                </span>
+                <div className="flex items-start justify-between">
+                  <span className={cn(
+                    "text-xs sm:text-sm font-medium relative",
+                    isToday && "today-pulse bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center shadow-sm",
+                    !isToday && "text-foreground"
+                  )}>
+                    {day}
+                  </span>
+                  {(hasManha || hasNoite) && (
+                    <span className="flex items-center gap-0.5 text-[10px] leading-none">
+                      {hasManha && <span title="Turno da manhã" aria-label="Manhã">☀️</span>}
+                      {hasNoite && <span title="Turno da noite" aria-label="Noite">🌙</span>}
+                    </span>
+                  )}
+                </div>
                 {daySchedules.length > 0 && (
                   <div className="mt-1">
                     <div className="flex flex-wrap gap-1">
@@ -345,6 +405,48 @@ export default function IndexPage() {
             );
           })}
         </div>
+
+        {/* Legend */}
+        {(() => {
+          const usedMinistryIds = new Set(
+            Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
+          );
+          const legend = ministries
+            .filter(m => usedMinistryIds.has(m.id))
+            .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
+          if (legend.length === 0) return null;
+          return (
+            <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
+              <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {legend.map(min => {
+                  const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
+                  const Icon = getMinistryIcon(min.name);
+                  return (
+                    <span
+                      key={min.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                      style={{
+                        backgroundColor: `hsl(${color} / 0.12)`,
+                        color: `hsl(${color})`,
+                        borderColor: `hsl(${color} / 0.3)`,
+                      }}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {min.name}
+                    </span>
+                  );
+                })}
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                  ☀️ Manhã
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                  🌙 Noite
+                </span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Selected date detail — modern shift cards */}
