@@ -32,10 +32,13 @@
     --input: 40 15% 85%;
     --ring: 152 45% 28%;
 
-    --shadow-card: 0 1px 3px 0 hsl(150 10% 30% / 0.06), 0 1px 2px -1px hsl(150 10% 30% / 0.06);
-    --shadow-card-hover: 0 4px 12px -2px hsl(150 10% 30% / 0.1), 0 2px 4px -2px hsl(150 10% 30% / 0.06);
+    --shadow-card: 0 1px 3px 0 hsl(152 30% 20% / 0.06), 0 1px 2px -1px hsl(152 30% 20% / 0.06);
+    --shadow-card-hover: 0 8px 24px -6px hsl(152 45% 28% / 0.16), 0 4px 8px -4px hsl(152 30% 20% / 0.08);
+    --shadow-elegant: 0 20px 40px -12px hsl(152 45% 28% / 0.25), 0 8px 16px -8px hsl(38 60% 40% / 0.15);
+    --gradient-hero: linear-gradient(135deg, hsl(152 45% 28% / 0.75) 0%, hsl(152 45% 28% / 0.35) 45%, hsl(38 80% 55% / 0.15) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(152 45% 28%), hsl(152 55% 38%));
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     --sidebar-background: 150 20% 16%;
     --sidebar-foreground: 40 30% 92%;
@@ -165,5 +168,43 @@
   /* Touch-friendly icon buttons */
   .icon-btn {
     @apply inline-flex items-center justify-center rounded-md h-9 w-9 sm:h-10 sm:w-10 transition-colors;
+  }
+
+  /* Hero */
+  .hero-overlay {
+    background: var(--gradient-hero);
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+
+  /* Nav pills active indicator */
+  .nav-pill-active::after {
+    content: "";
+    @apply absolute left-1/2 -bottom-1 h-0.5 w-6 -translate-x-1/2 rounded-full;
+    background: hsl(var(--accent));
+  }
+
+  /* Staggered fade for lists */
+  .stagger-item {
+    opacity: 0;
+    animation: fade-in 0.4s ease-out forwards;
+  }
+
+  /* Pulse ring for "today" */
+  .today-pulse {
+    position: relative;
+  }
+  .today-pulse::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--accent) / 0.6);
+    animation: today-pulse 2.4s ease-out infinite;
+  }
+  @keyframes today-pulse {
+    0% { transform: scale(1); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
   }
 }
