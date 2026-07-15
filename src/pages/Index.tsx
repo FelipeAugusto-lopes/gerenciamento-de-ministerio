@@ -304,14 +304,14 @@ export default function IndexPage() {
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
                 className={cn(
-                  "relative min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0 p-1.5 sm:p-2 text-left transition-colors hover:bg-muted/50",
+                  "group relative min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0 p-1.5 sm:p-2 text-left transition-all duration-200 hover:bg-muted/50 hover:z-10 hover:shadow-md",
                   isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
                   isToday && !isSelected && "bg-accent/10"
                 )}
               >
                 <span className={cn(
-                  "text-xs sm:text-sm font-medium",
-                  isToday && "bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center",
+                  "text-xs sm:text-sm font-medium relative",
+                  isToday && "today-pulse bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 inline-flex items-center justify-center shadow-sm",
                   !isToday && "text-foreground"
                 )}>
                   {day}
