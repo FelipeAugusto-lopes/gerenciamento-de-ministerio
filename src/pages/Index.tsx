@@ -1,4 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek, getMinistryOrder } from "@/lib/helpers";
@@ -61,6 +63,27 @@ export default function IndexPage() {
 
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
+
+  // Deep-link: /?new=1&date=YYYY-MM-DD → open the add dialog on that date
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const wantNew = searchParams.get("new");
+    const qDate = searchParams.get("date");
+    if (wantNew === "1") {
+      const target = qDate || today.toISOString().split("T")[0];
+      const d = new Date(target + "T12:00:00");
+      setYear(d.getFullYear());
+      setMonth(d.getMonth());
+      setSelectedDate(target);
+      setShowAddDialog(true);
+      // clear params so it doesn't re-trigger
+      const next = new URLSearchParams(searchParams);
+      next.delete("new");
+      next.delete("date");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
@@ -147,12 +170,25 @@ export default function IndexPage() {
 
   const handleDelete = (id: string) => {
     const s = schedules.find(x => x.id === id);
-    if (s) {
-      const ministry = ministries.find(m => m.id === s.ministryId);
-      const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
-      addEntry("Removeu escala", `${memberNames} de ${ministry?.name} — ${formatDate(s.date)}`);
-    }
+    if (!s) return;
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
+    // Snapshot for undo
+    const snapshot = { ministryId: s.ministryId, date: s.date, shift: s.shift, memberIds: [...s.memberIds], status: s.status };
+    addEntry("Removeu escala", `${memberNames} de ${ministry?.name} — ${formatDate(s.date)}`);
     deleteSchedule(id);
+    toast(`Escala removida — ${ministry?.name || ""}`, {
+      description: `${memberNames} · ${formatDate(s.date)} (${s.shift})`,
+      duration: 5000,
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          addSchedule(snapshot);
+          addEntry("Desfez remoção de escala", `${memberNames} em ${ministry?.name} — ${formatDate(s.date)}`);
+          toast.success("Escala restaurada");
+        },
+      },
+    });
   };
 
   const handleStatusChange = (s: typeof schedules[0], newStatus: ScheduleStatus) => {
@@ -170,8 +206,16 @@ export default function IndexPage() {
     });
     if (toConfirm.length > 0) {
       addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(selectedDate)}`);
+      toast.success(`${toConfirm.length} escala${toConfirm.length !== 1 ? "s" : ""} confirmada${toConfirm.length !== 1 ? "s" : ""}`);
+    } else {
+      toast("Todas já estavam confirmadas");
     }
   };
+
+  const pendingCountForSelectedDate = useMemo(() => {
+    if (!selectedDate) return 0;
+    return schedules.filter(s => s.date === selectedDate && s.status !== "Confirmado").length;
+  }, [selectedDate, schedules]);
 
   const startEditMembers = (s: typeof schedules[0]) => {
     setEditingScheduleId(s.id);
@@ -462,6 +506,17 @@ export default function IndexPage() {
                 <p className="meta-text mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {selectedSchedules.length > 0 && pendingCountForSelectedDate > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleConfirmAllForDate}
+                    className="gap-2 h-10 sm:h-11 border-emerald-400/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                    title="Confirmar todas as escalas do dia"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirmar todas ({pendingCountForSelectedDate})
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" className="icon-btn" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
                   <FileText className="h-4 w-4" />
                 </Button>
