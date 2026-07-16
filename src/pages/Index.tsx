@@ -170,12 +170,25 @@ export default function IndexPage() {
 
   const handleDelete = (id: string) => {
     const s = schedules.find(x => x.id === id);
-    if (s) {
-      const ministry = ministries.find(m => m.id === s.ministryId);
-      const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
-      addEntry("Removeu escala", `${memberNames} de ${ministry?.name} — ${formatDate(s.date)}`);
-    }
+    if (!s) return;
+    const ministry = ministries.find(m => m.id === s.ministryId);
+    const memberNames = s.memberIds.map(mid => members.find(m => m.id === mid)?.name || "?").join(", ");
+    // Snapshot for undo
+    const snapshot = { ministryId: s.ministryId, date: s.date, shift: s.shift, memberIds: [...s.memberIds], status: s.status };
+    addEntry("Removeu escala", `${memberNames} de ${ministry?.name} — ${formatDate(s.date)}`);
     deleteSchedule(id);
+    toast(`Escala removida — ${ministry?.name || ""}`, {
+      description: `${memberNames} · ${formatDate(s.date)} (${s.shift})`,
+      duration: 5000,
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          addSchedule(snapshot);
+          addEntry("Desfez remoção de escala", `${memberNames} em ${ministry?.name} — ${formatDate(s.date)}`);
+          toast.success("Escala restaurada");
+        },
+      },
+    });
   };
 
   const handleStatusChange = (s: typeof schedules[0], newStatus: ScheduleStatus) => {
