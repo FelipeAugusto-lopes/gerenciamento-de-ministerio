@@ -64,6 +64,27 @@ export default function IndexPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
 
+  // Deep-link: /?new=1&date=YYYY-MM-DD → open the add dialog on that date
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const wantNew = searchParams.get("new");
+    const qDate = searchParams.get("date");
+    if (wantNew === "1") {
+      const target = qDate || today.toISOString().split("T")[0];
+      const d = new Date(target + "T12:00:00");
+      setYear(d.getFullYear());
+      setMonth(d.getMonth());
+      setSelectedDate(target);
+      setShowAddDialog(true);
+      // clear params so it doesn't re-trigger
+      const next = new URLSearchParams(searchParams);
+      next.delete("new");
+      next.delete("date");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
   const schedulesByDate = useMemo(() => {
