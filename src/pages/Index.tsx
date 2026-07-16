@@ -506,6 +506,17 @@ export default function IndexPage() {
                 <p className="meta-text mt-0.5">{getDayOfWeek(selectedDate)} · {selectedSchedules.length} escala{selectedSchedules.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {selectedSchedules.length > 0 && pendingCountForSelectedDate > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleConfirmAllForDate}
+                    className="gap-2 h-10 sm:h-11 border-emerald-400/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                    title="Confirmar todas as escalas do dia"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirmar todas ({pendingCountForSelectedDate})
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" className="icon-btn" title="Exportar PDF" onClick={() => setShowPdfDialog(true)}>
                   <FileText className="h-4 w-4" />
                 </Button>
