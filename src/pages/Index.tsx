@@ -206,8 +206,16 @@ export default function IndexPage() {
     });
     if (toConfirm.length > 0) {
       addEntry("Confirmou todas as escalas", `${toConfirm.length} escala(s) em ${formatDate(selectedDate)}`);
+      toast.success(`${toConfirm.length} escala${toConfirm.length !== 1 ? "s" : ""} confirmada${toConfirm.length !== 1 ? "s" : ""}`);
+    } else {
+      toast("Todas já estavam confirmadas");
     }
   };
+
+  const pendingCountForSelectedDate = useMemo(() => {
+    if (!selectedDate) return 0;
+    return schedules.filter(s => s.date === selectedDate && s.status !== "Confirmado").length;
+  }, [selectedDate, schedules]);
 
   const startEditMembers = (s: typeof schedules[0]) => {
     setEditingScheduleId(s.id);
