@@ -167,9 +167,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           navigate(`/?new=1&date=${today}`);
         }}
         aria-label="Nova escala"
-        className="fixed right-4 sm:right-8 bottom-20 md:bottom-8 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-elegant hover:scale-105 active:scale-95 transition-transform h-14 pl-4 pr-5 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+        className="fixed right-4 sm:right-8 bottom-20 md:bottom-8 z-40 inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground shadow-elegant hover:scale-105 active:scale-95 transition-transform h-14 w-14 sm:w-auto sm:pl-4 sm:pr-5 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
-        <Plus className="h-5 w-5" aria-hidden="true" />
+        <Plus className="h-6 w-6 sm:h-5 sm:w-5" aria-hidden="true" />
         <span className="hidden sm:inline">Nova escala</span>
       </button>
 
