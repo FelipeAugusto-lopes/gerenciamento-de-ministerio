@@ -142,6 +142,16 @@ export default function IndexPage() {
     return null;
   };
 
+  // Members appearing in 2+ schedules on the selected date (highlighted in the list)
+  const duplicatedMemberIds = useMemo(() => {
+    if (!selectedDate) return new Set<string>();
+    const count = new Map<string, number>();
+    schedules
+      .filter(s => s.date === selectedDate)
+      .forEach(s => s.memberIds.forEach(id => count.set(id, (count.get(id) || 0) + 1)));
+    return new Set(Array.from(count.entries()).filter(([, n]) => n > 1).map(([id]) => id));
+  }, [selectedDate, schedules]);
+
   const toggleMember = (memberId: string) => {
     setNewForm(f => ({
       ...f,
@@ -659,12 +669,29 @@ export default function IndexPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {memberNames.map((name, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-                                        {name}
-                                      </span>
-                                    ))}
+                                    {s.memberIds.map((mid, idx) => {
+                                      const name = members.find(mm => mm.id === mid)?.name || "?";
+                                      const isDup = duplicatedMemberIds.has(mid);
+                                      return (
+                                        <span
+                                          key={idx}
+                                          title={isDup ? "Escalado em mais de um ministério neste dia" : undefined}
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                                            isDup
+                                              ? "bg-amber-500/15 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/50 shadow-sm"
+                                              : "bg-muted/60 text-foreground"
+                                          )}
+                                        >
+                                          {isDup ? (
+                                            <AlertTriangle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                          ) : (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                                          )}
+                                          <span className={cn(isDup && "underline decoration-amber-500/60 decoration-2 underline-offset-2")}>{name}</span>
+                                        </span>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
@@ -748,31 +775,34 @@ export default function IndexPage() {
                 availableMembers.map(m => {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
                     const conflict = getMemberConflict(m.id);
-                    const hasConflict = !!conflict && !isSelected;
+                    const hasConflict = !!conflict;
                     return (
                       <button
                         key={m.id}
-                        onClick={() => {
-                          if (hasConflict) return;
-                          toggleMember(m.id);
-                        }}
+                        onClick={() => toggleMember(m.id)}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors",
+                          "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
                           isSelected && "bg-primary/5",
-                          hasConflict ? "opacity-60 cursor-not-allowed bg-destructive/5" : "hover:bg-muted/50"
+                          hasConflict && !isSelected && "bg-amber-500/5"
                         )}
                       >
                         <span className={cn(
                           "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-destructive/50" : "border-muted-foreground/30"
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-amber-500/60" : "border-muted-foreground/30"
                         )}>
                           {isSelected && <span className="text-xs">✓</span>}
-                          {hasConflict && <AlertTriangle className="h-3 w-3 text-destructive" />}
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <span className={cn("font-medium", isSelected ? "text-primary" : hasConflict ? "text-destructive" : "text-foreground")}>{m.name}</span>
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <span className={cn(
+                            "font-medium truncate",
+                            isSelected ? "text-primary" : "text-foreground",
+                            hasConflict && "underline decoration-amber-500/60 decoration-2 underline-offset-2"
+                          )}>{m.name}</span>
                           {hasConflict && (
-                            <p className="text-[10px] text-destructive">Já escalado em {conflict.ministryName} ({conflict.shift})</p>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-amber-500/40 shrink-0">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              {conflict.ministryName} · {conflict.shift}
+                            </span>
                           )}
                         </div>
                       </button>
