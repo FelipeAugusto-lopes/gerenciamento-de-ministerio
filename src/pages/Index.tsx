@@ -82,8 +82,7 @@ export default function IndexPage() {
       next.delete("date");
       setSearchParams(next, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
 
