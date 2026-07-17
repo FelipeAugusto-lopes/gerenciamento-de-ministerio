@@ -669,12 +669,29 @@ export default function IndexPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {memberNames.map((name, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-                                        {name}
-                                      </span>
-                                    ))}
+                                    {s.memberIds.map((mid, idx) => {
+                                      const name = members.find(mm => mm.id === mid)?.name || "?";
+                                      const isDup = duplicatedMemberIds.has(mid);
+                                      return (
+                                        <span
+                                          key={idx}
+                                          title={isDup ? "Escalado em mais de um ministério neste dia" : undefined}
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                                            isDup
+                                              ? "bg-amber-500/15 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/50 shadow-sm"
+                                              : "bg-muted/60 text-foreground"
+                                          )}
+                                        >
+                                          {isDup ? (
+                                            <AlertTriangle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                          ) : (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                                          )}
+                                          <span className={cn(isDup && "underline decoration-amber-500/60 decoration-2 underline-offset-2")}>{name}</span>
+                                        </span>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
