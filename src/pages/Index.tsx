@@ -142,6 +142,16 @@ export default function IndexPage() {
     return null;
   };
 
+  // Members appearing in 2+ schedules on the selected date (highlighted in the list)
+  const duplicatedMemberIds = useMemo(() => {
+    if (!selectedDate) return new Set<string>();
+    const count = new Map<string, number>();
+    schedules
+      .filter(s => s.date === selectedDate)
+      .forEach(s => s.memberIds.forEach(id => count.set(id, (count.get(id) || 0) + 1)));
+    return new Set(Array.from(count.entries()).filter(([, n]) => n > 1).map(([id]) => id));
+  }, [selectedDate, schedules]);
+
   const toggleMember = (memberId: string) => {
     setNewForm(f => ({
       ...f,
