@@ -558,49 +558,49 @@ export default function IndexPage() {
               </button>
             );
           })}
-        </div>
 
-        {/* Legend */}
-        {(() => {
-          const usedMinistryIds = new Set(
-            Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
-          );
-          const legend = ministries
-            .filter(m => usedMinistryIds.has(m.id))
-            .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
-          if (legend.length === 0) return null;
-          return (
-            <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
-              <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {legend.map(min => {
-                  const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
-                  const Icon = getMinistryIcon(min.name);
-                  return (
-                    <span
-                      key={min.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                      style={{
-                        backgroundColor: `hsl(${color} / 0.12)`,
-                        color: `hsl(${color})`,
-                        borderColor: `hsl(${color} / 0.3)`,
-                      }}
-                    >
-                      <Icon className="h-3 w-3" />
-                      {min.name}
-                    </span>
-                  );
-                })}
-                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-                  ☀️ Manhã
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-                  🌙 Noite
-                </span>
+          {/* Legend */}
+          {(() => {
+            const usedMinistryIds = new Set(
+              Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
+            );
+            const legend = ministries
+              .filter(m => usedMinistryIds.has(m.id))
+              .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
+            if (legend.length === 0) return null;
+            return (
+              <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
+                <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {legend.map(min => {
+                    const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
+                    const Icon = getMinistryIcon(min.name);
+                    return (
+                      <span
+                        key={min.id}
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                        style={{
+                          backgroundColor: `hsl(${color} / 0.12)`,
+                          color: `hsl(${color})`,
+                          borderColor: `hsl(${color} / 0.3)`,
+                        }}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {min.name}
+                      </span>
+                    );
+                  })}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    ☀️ Manhã
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    🌙 Noite
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
+        </div>
         )}
       </div>
 
