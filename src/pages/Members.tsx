@@ -129,6 +129,39 @@ export default function MembersPage() {
           ))}
         </div>
       </div>
+      <div>
+        <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+          <Ban className="h-4 w-4 text-muted-foreground" />
+          Datas de indisponibilidade
+        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <Input
+            type="date"
+            value={unavailableDateInput}
+            onChange={e => setUnavailableDateInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addUnavailableDate())}
+            className="h-11 text-base flex-1"
+          />
+          <Button type="button" variant="outline" className="h-11 px-4" onClick={addUnavailableDate} disabled={!unavailableDateInput}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {formUnavailableDates.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma data bloqueada.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {formUnavailableDates.map(date => (
+              <span key={date} className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2.5 py-1 text-xs font-medium">
+                <Calendar className="h-3 w-3" />
+                {formatDate(date)}
+                <button onClick={() => removeUnavailableDate(date)} className="hover:text-destructive/70">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="flex gap-2">
         <Button className="h-12 px-6 text-base" onClick={onSubmit}><Check className="h-5 w-5 mr-1" /> Salvar</Button>
         <Button className="h-12 px-6 text-base" variant="outline" onClick={() => { setShowAdd(false); setEditId(null); resetForm(); }}><X className="h-5 w-5 mr-1" /> Cancelar</Button>
