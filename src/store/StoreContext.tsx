@@ -126,7 +126,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateMember = useCallback(async (m: Member) => {
-    await supabase.from("members").update({ name: m.name, phone: m.phone || null }).eq("id", m.id);
+    await supabase.from("members").update({
+      name: m.name,
+      phone: m.phone || null,
+      unavailable_dates: m.unavailableDates || [],
+    }).eq("id", m.id);
     // Replace ministry associations
     await supabase.from("member_ministries").delete().eq("member_id", m.id);
     if (m.ministryIds.length > 0) {
