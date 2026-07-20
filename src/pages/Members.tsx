@@ -58,11 +58,24 @@ export default function MembersPage() {
     setEditId(null); resetForm(); showSaved();
   };
 
-  const startEdit = (m: typeof members[0]) => {
+  const startEdit = (m: Member) => {
     setEditId(m.id);
     setFormName(m.name);
     setFormPhone(m.phone || "");
     setFormMinistryIds(m.ministryIds);
+    setFormUnavailableDates(m.unavailableDates || []);
+  };
+
+  const addUnavailableDate = () => {
+    if (!unavailableDateInput) return;
+    if (!formUnavailableDates.includes(unavailableDateInput)) {
+      setFormUnavailableDates(prev => [...prev, unavailableDateInput].sort());
+    }
+    setUnavailableDateInput("");
+  };
+
+  const removeUnavailableDate = (date: string) => {
+    setFormUnavailableDates(prev => prev.filter(d => d !== date));
   };
 
   const handleDelete = (m: typeof members[0]) => {
