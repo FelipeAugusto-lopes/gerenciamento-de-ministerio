@@ -776,6 +776,7 @@ export default function IndexPage() {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
                     const conflict = getMemberConflict(m.id);
                     const hasConflict = !!conflict;
+                    const isUnavailable = selectedDate ? m.unavailableDates.includes(selectedDate) : false;
                     return (
                       <button
                         key={m.id}
@@ -783,25 +784,32 @@ export default function IndexPage() {
                         className={cn(
                           "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
                           isSelected && "bg-primary/5",
-                          hasConflict && !isSelected && "bg-amber-500/5"
+                          hasConflict && !isSelected && "bg-amber-500/5",
+                          isUnavailable && !isSelected && !hasConflict && "bg-red-500/5"
                         )}
                       >
                         <span className={cn(
                           "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-amber-500/60" : "border-muted-foreground/30"
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-amber-500/60" : isUnavailable ? "border-red-400/50" : "border-muted-foreground/30"
                         )}>
                           {isSelected && <span className="text-xs">✓</span>}
                         </span>
                         <div className="flex-1 min-w-0 flex items-center gap-2">
                           <span className={cn(
                             "font-medium truncate",
-                            isSelected ? "text-primary" : "text-foreground",
+                            isSelected ? "text-primary" : hasConflict ? "text-foreground" : isUnavailable ? "text-red-600 dark:text-red-400" : "text-foreground",
                             hasConflict && "underline decoration-amber-500/60 decoration-2 underline-offset-2"
                           )}>{m.name}</span>
                           {hasConflict && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-amber-500/40 shrink-0">
                               <AlertTriangle className="h-2.5 w-2.5" />
                               {conflict.ministryName} · {conflict.shift}
+                            </span>
+                          )}
+                          {!hasConflict && isUnavailable && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-red-400/30 shrink-0">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Indisponível
                             </span>
                           )}
                         </div>
