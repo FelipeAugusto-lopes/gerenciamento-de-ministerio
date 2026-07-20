@@ -46,15 +46,14 @@ export default function MembersPage() {
 
   const handleAdd = () => {
     if (!formName.trim()) return;
-    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: [] });
+    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: formUnavailableDates });
     addEntry("Adicionou membro", formName.trim());
     resetForm(); setShowAdd(false); showSaved();
   };
 
   const handleSave = () => {
     if (!formName.trim() || !editId) return;
-    const original = members.find(m => m.id === editId);
-    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: original?.unavailableDates || [] });
+    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: formUnavailableDates });
     addEntry("Editou membro", formName.trim());
     setEditId(null); resetForm(); showSaved();
   };
