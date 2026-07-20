@@ -414,6 +414,69 @@ export default function IndexPage() {
           </Button>
         </div>
 
+        {viewMode === "week" ? (
+          <div className="divide-y">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = new Date(weekStart + "T12:00:00");
+              d.setDate(d.getDate() + i);
+              const ds = d.toISOString().split("T")[0];
+              const daySchedules = schedules.filter(s => s.date === ds).sort((a, b) => {
+                const shiftOrder = a.shift.localeCompare(b.shift);
+                if (shiftOrder !== 0) return shiftOrder;
+                const minA = ministries.find(m => m.id === a.ministryId);
+                const minB = ministries.find(m => m.id === b.ministryId);
+                return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
+              });
+              const isToday = ds === todayStr;
+              const isSelected = ds === selectedDate;
+              return (
+                <button
+                  key={ds}
+                  onClick={() => setSelectedDate(ds)}
+                  className={cn(
+                    "w-full flex items-start gap-3 p-3 text-left transition-colors hover:bg-muted/30",
+                    isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
+                    isToday && !isSelected && "bg-accent/10"
+                  )}
+                >
+                  <div className="flex flex-col items-center min-w-[3rem]">
+                    <span className="text-[10px] uppercase text-muted-foreground">{DAYS[d.getDay()]}</span>
+                    <span className={cn(
+                      "text-lg font-display font-bold w-8 h-8 flex items-center justify-center rounded-full",
+                      isToday ? "bg-primary text-primary-foreground" : "text-foreground"
+                    )}>
+                      {d.getDate()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {daySchedules.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">Nenhuma escala</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 py-1">
+                        {daySchedules.map(s => {
+                          const min = ministries.find(m => m.id === s.ministryId);
+                          const color = min ? MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
+                          const Icon = getMinistryIcon(min?.name || "");
+                          return (
+                            <span
+                              key={s.id}
+                              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border"
+                              style={{ backgroundColor: `hsl(${color} / 0.15)`, color: `hsl(${color})`, borderColor: `hsl(${color} / 0.3)` }}
+                            >
+                              <Icon className="h-3 w-3" />
+                              {min?.name}
+                              <span className="text-[10px] opacity-80">· {s.shift}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid grid-cols-7">
           {DAYS.map(d => (
             <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground border-b">
