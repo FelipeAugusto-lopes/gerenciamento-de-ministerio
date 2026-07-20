@@ -601,6 +601,7 @@ export default function IndexPage() {
             </div>
           );
         })()}
+        )}
       </div>
 
       {/* Selected date detail — modern shift cards */}
