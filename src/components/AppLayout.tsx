@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Users, Church, Menu, X, LayoutDashboard, Search, Plus } from "lucide-react";
+import { Calendar, Users, Church, Menu, X, LayoutDashboard, Search, Plus, BarChart3 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import GlobalSearch from "@/components/GlobalSearch";
