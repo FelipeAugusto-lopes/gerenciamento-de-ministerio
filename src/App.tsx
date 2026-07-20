@@ -11,6 +11,7 @@ import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
+import FrequencyReport from "@/pages/FrequencyReport";
 
 import NotFound from "@/pages/NotFound";
 
