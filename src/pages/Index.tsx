@@ -116,6 +116,14 @@ export default function IndexPage() {
     else setMonth(m => m + 1);
   };
 
+  const shiftWeek = (days: number) => {
+    const d = new Date(weekStart + "T12:00:00");
+    d.setDate(d.getDate() + days);
+    setWeekStart(d.toISOString().split("T")[0]);
+  };
+  const prevWeek = () => shiftWeek(-7);
+  const nextWeek = () => shiftWeek(7);
+
   const dateStr = (day: number) => {
     const m = String(month + 1).padStart(2, "0");
     const d = String(day).padStart(2, "0");
