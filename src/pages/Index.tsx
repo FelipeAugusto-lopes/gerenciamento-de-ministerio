@@ -366,13 +366,35 @@ export default function IndexPage() {
       {/* Calendar */}
       <div className="content-card">
         <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth} aria-label="Mês anterior">
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={viewMode === "month" ? prevMonth : prevWeek} aria-label={viewMode === "month" ? "Mês anterior" : "Semana anterior"}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="section-title">
-            {MONTH_NAMES[month]} {year}
-          </h2>
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth} aria-label="Próximo mês">
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="section-title">
+              {viewMode === "month" ? `${MONTH_NAMES[month]} ${year}` : `Semana de ${formatDate(weekStart)}`}
+            </h2>
+            <div className="flex items-center rounded-full border border-border/60 bg-muted/40 p-0.5">
+              <button
+                onClick={() => setViewMode("month")}
+                className={cn(
+                  "rounded-full px-3 py-0.5 text-[10px] font-medium transition-colors",
+                  viewMode === "month" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Mês
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "rounded-full px-3 py-0.5 text-[10px] font-medium transition-colors",
+                  viewMode === "week" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Semana
+              </button>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={viewMode === "month" ? nextMonth : nextWeek} aria-label={viewMode === "month" ? "Próximo mês" : "Próxima semana"}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
