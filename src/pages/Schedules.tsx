@@ -178,7 +178,7 @@ export default function SchedulesPage() {
   };
 
   const getSuggestedMember = (ministryId: string, date: string, shift: Shift): string | null => {
-    const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId));
+    const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId) && !m.unavailableDates.includes(date));
     if (ministryMembers.length === 0) return null;
     const targetDate = new Date(date + "T12:00:00");
     const prevWeek = new Date(targetDate);
