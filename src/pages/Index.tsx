@@ -46,6 +46,7 @@ export default function IndexPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [pdfOpts, setPdfOpts] = useState({
