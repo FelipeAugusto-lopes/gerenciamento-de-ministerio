@@ -44,14 +44,15 @@ export default function MembersPage() {
 
   const handleAdd = () => {
     if (!formName.trim()) return;
-    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: [] });
     addEntry("Adicionou membro", formName.trim());
     resetForm(); setShowAdd(false); showSaved();
   };
 
   const handleSave = () => {
     if (!formName.trim() || !editId) return;
-    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    const original = members.find(m => m.id === editId);
+    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: original?.unavailableDates || [] });
     addEntry("Editou membro", formName.trim());
     setEditId(null); resetForm(); showSaved();
   };
