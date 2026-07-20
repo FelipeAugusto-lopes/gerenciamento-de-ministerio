@@ -31,6 +31,7 @@ const App = () => (
                 <Route path="/escalas" element={<Schedules />} />
                 <Route path="/membros" element={<Members />} />
                 <Route path="/ministerios" element={<Ministries />} />
+                <Route path="/frequencia" element={<FrequencyReport />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
