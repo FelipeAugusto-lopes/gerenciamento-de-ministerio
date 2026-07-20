@@ -281,6 +281,11 @@ export default function MembersPage() {
                     {stats.lastServed && (
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(stats.lastServed)}</span>
                     )}
+                    {m.unavailableDates.length > 0 && (
+                      <span className="flex items-center gap-1 text-destructive" title={m.unavailableDates.map(formatDate).join(", ")}>
+                        <Ban className="h-3 w-3" /> {m.unavailableDates.length} bloqueio{m.unavailableDates.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {m.ministryIds.map(mid => {
