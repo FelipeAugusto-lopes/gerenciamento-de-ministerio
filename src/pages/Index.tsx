@@ -47,6 +47,13 @@ export default function IndexPage() {
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    const sunday = new Date(d.setDate(diff));
+    return sunday.toISOString().split("T")[0];
+  });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [pdfOpts, setPdfOpts] = useState({
