@@ -31,12 +31,14 @@ export default function MembersPage() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formMinistryIds, setFormMinistryIds] = useState<string[]>([]);
+  const [formUnavailableDates, setFormUnavailableDates] = useState<string[]>([]);
+  const [unavailableDateInput, setUnavailableDateInput] = useState("");
   const [search, setSearch] = useState("");
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
 
   const showSaved = () => { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 2000); };
-  const resetForm = () => { setFormName(""); setFormPhone(""); setFormMinistryIds([]); };
+  const resetForm = () => { setFormName(""); setFormPhone(""); setFormMinistryIds([]); setFormUnavailableDates([]); setUnavailableDateInput(""); };
 
   const toggleMinistry = (id: string) => {
     setFormMinistryIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
