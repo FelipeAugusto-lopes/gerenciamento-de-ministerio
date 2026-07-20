@@ -178,7 +178,7 @@ export default function SchedulesPage() {
   };
 
   const getSuggestedMember = (ministryId: string, date: string, shift: Shift): string | null => {
-    const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId));
+    const ministryMembers = members.filter(m => m.ministryIds.includes(ministryId) && !m.unavailableDates.includes(date));
     if (ministryMembers.length === 0) return null;
     const targetDate = new Date(date + "T12:00:00");
     const prevWeek = new Date(targetDate);
@@ -635,6 +635,8 @@ export default function SchedulesPage() {
                   const isSelected = newForm.selectedMemberIds.includes(m.id);
                   const conflict = getMemberConflict(m.id, newForm.date);
                   const hasConflict = !!conflict && !isSelected;
+                  const isUnavailable = m.unavailableDates.includes(newForm.date);
+                  const showWarning = (hasConflict || isUnavailable) && !isSelected;
                   return (
                     <button
                       key={m.id}
@@ -642,20 +644,23 @@ export default function SchedulesPage() {
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors",
                         isSelected && "bg-primary/5",
-                        hasConflict ? "opacity-60 cursor-not-allowed bg-destructive/5" : "hover:bg-muted/50"
+                        hasConflict ? "opacity-60 cursor-not-allowed bg-destructive/5" : isUnavailable ? "bg-amber-500/5" : "hover:bg-muted/50"
                       )}
                     >
                       <span className={cn(
                         "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                        isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-destructive/50" : "border-muted-foreground/30"
+                        isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-destructive/50" : isUnavailable ? "border-amber-500/50" : "border-muted-foreground/30"
                       )}>
                         {isSelected && <span className="text-xs">✓</span>}
-                        {hasConflict && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                        {showWarning && <AlertTriangle className={cn("h-3 w-3", hasConflict ? "text-destructive" : "text-amber-500")} />}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <span className={cn("font-medium", isSelected ? "text-primary" : hasConflict ? "text-destructive" : "text-foreground")}>{m.name}</span>
+                        <span className={cn("font-medium", isSelected ? "text-primary" : hasConflict ? "text-destructive" : isUnavailable ? "text-amber-700 dark:text-amber-400" : "text-foreground")}>{m.name}</span>
                         {hasConflict && (
                           <p className="text-[10px] text-destructive">Já escalado em {conflict.ministryName} ({conflict.shift})</p>
+                        )}
+                        {!hasConflict && isUnavailable && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">Indisponível nesta data</p>
                         )}
                       </div>
                     </button>

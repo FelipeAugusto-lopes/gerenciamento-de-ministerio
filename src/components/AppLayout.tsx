@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Users, Church, Menu, X, LayoutDashboard, Search, Plus } from "lucide-react";
+import { Calendar, Users, Church, Menu, X, LayoutDashboard, Search, Plus, BarChart3 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/escalas", label: "Escalas", icon: Calendar },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/ministerios", label: "Ministérios", icon: Church },
+  { to: "/frequencia", label: "Frequência", icon: BarChart3 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

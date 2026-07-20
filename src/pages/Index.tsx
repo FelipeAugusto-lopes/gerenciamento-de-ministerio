@@ -46,6 +46,14 @@ export default function IndexPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    const sunday = new Date(d.setDate(diff));
+    return sunday.toISOString().split("T")[0];
+  });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [pdfOpts, setPdfOpts] = useState({
@@ -107,6 +115,14 @@ export default function IndexPage() {
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   };
+
+  const shiftWeek = (days: number) => {
+    const d = new Date(weekStart + "T12:00:00");
+    d.setDate(d.getDate() + days);
+    setWeekStart(d.toISOString().split("T")[0]);
+  };
+  const prevWeek = () => shiftWeek(-7);
+  const nextWeek = () => shiftWeek(7);
 
   const dateStr = (day: number) => {
     const m = String(month + 1).padStart(2, "0");
@@ -365,17 +381,102 @@ export default function IndexPage() {
       {/* Calendar */}
       <div className="content-card">
         <div className="card-header-pad flex items-center justify-between border-b bg-muted/30">
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={prevMonth} aria-label="Mês anterior">
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={viewMode === "month" ? prevMonth : prevWeek} aria-label={viewMode === "month" ? "Mês anterior" : "Semana anterior"}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h2 className="section-title">
-            {MONTH_NAMES[month]} {year}
-          </h2>
-          <Button variant="ghost" size="icon" className="icon-btn" onClick={nextMonth} aria-label="Próximo mês">
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="section-title">
+              {viewMode === "month" ? `${MONTH_NAMES[month]} ${year}` : `Semana de ${formatDate(weekStart)}`}
+            </h2>
+            <div className="flex items-center rounded-full border border-border/60 bg-muted/40 p-0.5">
+              <button
+                onClick={() => setViewMode("month")}
+                className={cn(
+                  "rounded-full px-3 py-0.5 text-[10px] font-medium transition-colors",
+                  viewMode === "month" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Mês
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "rounded-full px-3 py-0.5 text-[10px] font-medium transition-colors",
+                  viewMode === "week" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Semana
+              </button>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="icon-btn" onClick={viewMode === "month" ? nextMonth : nextWeek} aria-label={viewMode === "month" ? "Próximo mês" : "Próxima semana"}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
 
+        {viewMode === "week" ? (
+          <div className="divide-y">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = new Date(weekStart + "T12:00:00");
+              d.setDate(d.getDate() + i);
+              const ds = d.toISOString().split("T")[0];
+              const daySchedules = schedules.filter(s => s.date === ds).sort((a, b) => {
+                const shiftOrder = a.shift.localeCompare(b.shift);
+                if (shiftOrder !== 0) return shiftOrder;
+                const minA = ministries.find(m => m.id === a.ministryId);
+                const minB = ministries.find(m => m.id === b.ministryId);
+                return getMinistryOrder(minA?.name || "") - getMinistryOrder(minB?.name || "");
+              });
+              const isToday = ds === todayStr;
+              const isSelected = ds === selectedDate;
+              return (
+                <button
+                  key={ds}
+                  onClick={() => setSelectedDate(ds)}
+                  className={cn(
+                    "w-full flex items-start gap-3 p-3 text-left transition-colors hover:bg-muted/30",
+                    isSelected && "bg-primary/10 ring-2 ring-primary ring-inset",
+                    isToday && !isSelected && "bg-accent/10"
+                  )}
+                >
+                  <div className="flex flex-col items-center min-w-[3rem]">
+                    <span className="text-[10px] uppercase text-muted-foreground">{DAYS[d.getDay()]}</span>
+                    <span className={cn(
+                      "text-lg font-display font-bold w-8 h-8 flex items-center justify-center rounded-full",
+                      isToday ? "bg-primary text-primary-foreground" : "text-foreground"
+                    )}>
+                      {d.getDate()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {daySchedules.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">Nenhuma escala</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 py-1">
+                        {daySchedules.map(s => {
+                          const min = ministries.find(m => m.id === s.ministryId);
+                          const color = min ? MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
+                          const Icon = getMinistryIcon(min?.name || "");
+                          return (
+                            <span
+                              key={s.id}
+                              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border"
+                              style={{ backgroundColor: `hsl(${color} / 0.15)`, color: `hsl(${color})`, borderColor: `hsl(${color} / 0.3)` }}
+                            >
+                              <Icon className="h-3 w-3" />
+                              {min?.name}
+                              <span className="text-[10px] opacity-80">· {s.shift}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid grid-cols-7">
           {DAYS.map(d => (
             <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground border-b">
@@ -457,49 +558,50 @@ export default function IndexPage() {
               </button>
             );
           })}
-        </div>
 
-        {/* Legend */}
-        {(() => {
-          const usedMinistryIds = new Set(
-            Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
-          );
-          const legend = ministries
-            .filter(m => usedMinistryIds.has(m.id))
-            .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
-          if (legend.length === 0) return null;
-          return (
-            <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
-              <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {legend.map(min => {
-                  const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
-                  const Icon = getMinistryIcon(min.name);
-                  return (
-                    <span
-                      key={min.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                      style={{
-                        backgroundColor: `hsl(${color} / 0.12)`,
-                        color: `hsl(${color})`,
-                        borderColor: `hsl(${color} / 0.3)`,
-                      }}
-                    >
-                      <Icon className="h-3 w-3" />
-                      {min.name}
-                    </span>
-                  );
-                })}
-                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-                  ☀️ Manhã
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-                  🌙 Noite
-                </span>
+          {/* Legend */}
+          {(() => {
+            const usedMinistryIds = new Set(
+              Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
+            );
+            const legend = ministries
+              .filter(m => usedMinistryIds.has(m.id))
+              .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
+            if (legend.length === 0) return null;
+            return (
+              <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
+                <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {legend.map(min => {
+                    const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
+                    const Icon = getMinistryIcon(min.name);
+                    return (
+                      <span
+                        key={min.id}
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                        style={{
+                          backgroundColor: `hsl(${color} / 0.12)`,
+                          color: `hsl(${color})`,
+                          borderColor: `hsl(${color} / 0.3)`,
+                        }}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {min.name}
+                      </span>
+                    );
+                  })}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    ☀️ Manhã
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    🌙 Noite
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
+        </div>
+        )}
       </div>
 
       {/* Selected date detail — modern shift cards */}
@@ -776,6 +878,7 @@ export default function IndexPage() {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
                     const conflict = getMemberConflict(m.id);
                     const hasConflict = !!conflict;
+                    const isUnavailable = selectedDate ? m.unavailableDates.includes(selectedDate) : false;
                     return (
                       <button
                         key={m.id}
@@ -783,25 +886,32 @@ export default function IndexPage() {
                         className={cn(
                           "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
                           isSelected && "bg-primary/5",
-                          hasConflict && !isSelected && "bg-amber-500/5"
+                          hasConflict && !isSelected && "bg-amber-500/5",
+                          isUnavailable && !isSelected && !hasConflict && "bg-red-500/5"
                         )}
                       >
                         <span className={cn(
                           "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-amber-500/60" : "border-muted-foreground/30"
+                          isSelected ? "bg-primary border-primary text-primary-foreground" : hasConflict ? "border-amber-500/60" : isUnavailable ? "border-red-400/50" : "border-muted-foreground/30"
                         )}>
                           {isSelected && <span className="text-xs">✓</span>}
                         </span>
                         <div className="flex-1 min-w-0 flex items-center gap-2">
                           <span className={cn(
                             "font-medium truncate",
-                            isSelected ? "text-primary" : "text-foreground",
+                            isSelected ? "text-primary" : hasConflict ? "text-foreground" : isUnavailable ? "text-red-600 dark:text-red-400" : "text-foreground",
                             hasConflict && "underline decoration-amber-500/60 decoration-2 underline-offset-2"
                           )}>{m.name}</span>
                           {hasConflict && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-amber-500/40 shrink-0">
                               <AlertTriangle className="h-2.5 w-2.5" />
                               {conflict.ministryName} · {conflict.shift}
+                            </span>
+                          )}
+                          {!hasConflict && isUnavailable && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-red-400/30 shrink-0">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Indisponível
                             </span>
                           )}
                         </div>

@@ -46,6 +46,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         name: m.name,
         phone: m.phone || undefined,
         ministryIds: (mmData || []).filter(mm => mm.member_id === m.id).map(mm => mm.ministry_id),
+        unavailableDates: (m.unavailable_dates || []).map((d: string) => d),
       })));
     }
   }, []);
@@ -112,7 +113,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // --- Members CRUD ---
   const addMember = useCallback(async (m: Omit<Member, "id">) => {
-    const { data } = await supabase.from("members").insert({ name: m.name, phone: m.phone || null }).select().single();
+    const { data } = await supabase.from("members").insert({
+      name: m.name,
+      phone: m.phone || null,
+      unavailable_dates: m.unavailableDates || [],
+    }).select().single();
     if (data && m.ministryIds.length > 0) {
       await supabase.from("member_ministries").insert(
         m.ministryIds.map(mid => ({ member_id: data.id, ministry_id: mid }))
@@ -121,7 +126,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateMember = useCallback(async (m: Member) => {
-    await supabase.from("members").update({ name: m.name, phone: m.phone || null }).eq("id", m.id);
+    await supabase.from("members").update({
+      name: m.name,
+      phone: m.phone || null,
+      unavailable_dates: m.unavailableDates || [],
+    }).eq("id", m.id);
     // Replace ministry associations
     await supabase.from("member_ministries").delete().eq("member_id", m.id);
     if (m.ministryIds.length > 0) {

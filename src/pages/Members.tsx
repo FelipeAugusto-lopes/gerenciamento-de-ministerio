@@ -2,12 +2,12 @@ import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
-import { Plus, Pencil, Trash2, X, Check, Phone, Search, History, CheckCircle2, Clock, BarChart3, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Phone, Search, History, CheckCircle2, Clock, BarChart3, Calendar, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { type ScheduleStatus } from "@/types";
+import { type ScheduleStatus, type Member } from "@/types";
 
 const statusColors: Record<ScheduleStatus, string> = {
   Pendente: "bg-accent/20 text-accent-foreground border-accent/30",
@@ -31,12 +31,14 @@ export default function MembersPage() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formMinistryIds, setFormMinistryIds] = useState<string[]>([]);
+  const [formUnavailableDates, setFormUnavailableDates] = useState<string[]>([]);
+  const [unavailableDateInput, setUnavailableDateInput] = useState("");
   const [search, setSearch] = useState("");
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null);
 
   const showSaved = () => { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 2000); };
-  const resetForm = () => { setFormName(""); setFormPhone(""); setFormMinistryIds([]); };
+  const resetForm = () => { setFormName(""); setFormPhone(""); setFormMinistryIds([]); setFormUnavailableDates([]); setUnavailableDateInput(""); };
 
   const toggleMinistry = (id: string) => {
     setFormMinistryIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -44,23 +46,36 @@ export default function MembersPage() {
 
   const handleAdd = () => {
     if (!formName.trim()) return;
-    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    addMember({ name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: formUnavailableDates });
     addEntry("Adicionou membro", formName.trim());
     resetForm(); setShowAdd(false); showSaved();
   };
 
   const handleSave = () => {
     if (!formName.trim() || !editId) return;
-    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds });
+    updateMember({ id: editId, name: formName.trim(), phone: formPhone || undefined, ministryIds: formMinistryIds, unavailableDates: formUnavailableDates });
     addEntry("Editou membro", formName.trim());
     setEditId(null); resetForm(); showSaved();
   };
 
-  const startEdit = (m: typeof members[0]) => {
+  const startEdit = (m: Member) => {
     setEditId(m.id);
     setFormName(m.name);
     setFormPhone(m.phone || "");
     setFormMinistryIds(m.ministryIds);
+    setFormUnavailableDates(m.unavailableDates || []);
+  };
+
+  const addUnavailableDate = () => {
+    if (!unavailableDateInput) return;
+    if (!formUnavailableDates.includes(unavailableDateInput)) {
+      setFormUnavailableDates(prev => [...prev, unavailableDateInput].sort());
+    }
+    setUnavailableDateInput("");
+  };
+
+  const removeUnavailableDate = (date: string) => {
+    setFormUnavailableDates(prev => prev.filter(d => d !== date));
   };
 
   const handleDelete = (m: typeof members[0]) => {
@@ -113,6 +128,39 @@ export default function MembersPage() {
             </button>
           ))}
         </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+          <Ban className="h-4 w-4 text-muted-foreground" />
+          Datas de indisponibilidade
+        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <Input
+            type="date"
+            value={unavailableDateInput}
+            onChange={e => setUnavailableDateInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addUnavailableDate())}
+            className="h-11 text-base flex-1"
+          />
+          <Button type="button" variant="outline" className="h-11 px-4" onClick={addUnavailableDate} disabled={!unavailableDateInput}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {formUnavailableDates.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma data bloqueada.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {formUnavailableDates.map(date => (
+              <span key={date} className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2.5 py-1 text-xs font-medium">
+                <Calendar className="h-3 w-3" />
+                {formatDate(date)}
+                <button onClick={() => removeUnavailableDate(date)} className="hover:text-destructive/70">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex gap-2">
         <Button className="h-12 px-6 text-base" onClick={onSubmit}><Check className="h-5 w-5 mr-1" /> Salvar</Button>
@@ -232,6 +280,11 @@ export default function MembersPage() {
                     <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" /> {stats.total} escalas</span>
                     {stats.lastServed && (
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDate(stats.lastServed)}</span>
+                    )}
+                    {m.unavailableDates.length > 0 && (
+                      <span className="flex items-center gap-1 text-destructive" title={m.unavailableDates.map(formatDate).join(", ")}>
+                        <Ban className="h-3 w-3" /> {m.unavailableDates.length} bloqueio{m.unavailableDates.length !== 1 ? "s" : ""}
+                      </span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">

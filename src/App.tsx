@@ -11,6 +11,7 @@ import Index from "@/pages/Index";
 import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
+import FrequencyReport from "@/pages/FrequencyReport";
 
 import NotFound from "@/pages/NotFound";
 
@@ -30,6 +31,7 @@ const App = () => (
                 <Route path="/escalas" element={<Schedules />} />
                 <Route path="/membros" element={<Members />} />
                 <Route path="/ministerios" element={<Ministries />} />
+                <Route path="/frequencia" element={<FrequencyReport />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
