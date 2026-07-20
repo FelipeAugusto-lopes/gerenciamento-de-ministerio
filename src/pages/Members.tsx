@@ -2,12 +2,12 @@ import { useState, useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek } from "@/lib/helpers";
-import { Plus, Pencil, Trash2, X, Check, Phone, Search, History, CheckCircle2, Clock, BarChart3, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Phone, Search, History, CheckCircle2, Clock, BarChart3, Calendar, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { type ScheduleStatus } from "@/types";
+import { type ScheduleStatus, type Member } from "@/types";
 
 const statusColors: Record<ScheduleStatus, string> = {
   Pendente: "bg-accent/20 text-accent-foreground border-accent/30",
