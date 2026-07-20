@@ -10,6 +10,7 @@ const navItems = [
   { to: "/escalas", label: "Escalas", icon: Calendar },
   { to: "/membros", label: "Membros", icon: Users },
   { to: "/ministerios", label: "Ministérios", icon: Church },
+  { to: "/frequencia", label: "Frequência", icon: BarChart3 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
