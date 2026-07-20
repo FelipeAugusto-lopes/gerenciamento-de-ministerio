@@ -113,7 +113,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // --- Members CRUD ---
   const addMember = useCallback(async (m: Omit<Member, "id">) => {
-    const { data } = await supabase.from("members").insert({ name: m.name, phone: m.phone || null }).select().single();
+    const { data } = await supabase.from("members").insert({
+      name: m.name,
+      phone: m.phone || null,
+      unavailable_dates: m.unavailableDates || [],
+    }).select().single();
     if (data && m.ministryIds.length > 0) {
       await supabase.from("member_ministries").insert(
         m.ministryIds.map(mid => ({ member_id: data.id, ministry_id: mid }))
