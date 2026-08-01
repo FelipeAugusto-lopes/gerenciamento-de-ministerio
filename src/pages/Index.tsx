@@ -575,8 +575,18 @@ export default function IndexPage() {
             );
           })}
 
-          {/* Legend */}
+          {/* Trailing empty cells so the last week matches the others */}
           {(() => {
+            const rest = (7 - (calendarDays.length % 7)) % 7;
+            return Array.from({ length: rest }).map((_, i) => (
+              <div key={`tail-${i}`} className="min-h-[72px] sm:min-h-[96px] border-b border-r last:border-r-0" />
+            ));
+          })()}
+        </div>
+        )}
+
+        {/* Legend */}
+        {viewMode === "month" && (() => {
             const usedMinistryIds = new Set(
               Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
             );
@@ -616,8 +626,6 @@ export default function IndexPage() {
               </div>
             );
           })()}
-        </div>
-        )}
       </div>
 
       <RandomScheduleDialog
