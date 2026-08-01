@@ -15,6 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { HomeDashboard } from "@/components/HomeDashboard";
+import { RandomScheduleDialog } from "@/components/RandomScheduleDialog";
+import { Shuffle } from "lucide-react";
 
 const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
 
@@ -56,6 +58,7 @@ export default function IndexPage() {
   });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [showRandomDialog, setShowRandomDialog] = useState(false);
   const [pdfOpts, setPdfOpts] = useState({
     showMinistry: true,
     showMembers: true,
@@ -375,6 +378,19 @@ export default function IndexPage() {
         );
       })()}
 
+      {/* Random schedule generator */}
+      <div className="content-card card-pad flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div>
+          <h2 className="section-title">Escala aleatória do próximo mês</h2>
+          <p className="meta-text mt-0.5">
+            Gera automaticamente Áudio, Mídia Story, Mídia Fotos, Projeção, Transmissão e Berçário com base no histórico.
+          </p>
+        </div>
+        <Button onClick={() => setShowRandomDialog(true)} className="gap-2 h-11 px-5 shrink-0">
+          <Shuffle className="h-4 w-4" /> Escala aleatória
+        </Button>
+      </div>
+
       <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
 
 
@@ -603,6 +619,12 @@ export default function IndexPage() {
         </div>
         )}
       </div>
+
+      <RandomScheduleDialog
+        open={showRandomDialog}
+        onOpenChange={setShowRandomDialog}
+        onGenerated={(y, m) => { setYear(y); setMonth(m); }}
+      />
 
       {/* Selected date detail — modern shift cards */}
       {selectedDate && (
