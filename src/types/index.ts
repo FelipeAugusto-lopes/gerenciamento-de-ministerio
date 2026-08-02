@@ -10,6 +10,7 @@ export interface Member {
   phone?: string;
   ministryIds: string[];
   unavailableDates: string[]; // ISO dates the member cannot serve
+  createdAt?: string; // ISO datetime of registration
 }
 
 export type Shift = "Manhã" | "Noite";

@@ -47,6 +47,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         phone: m.phone || undefined,
         ministryIds: (mmData || []).filter(mm => mm.member_id === m.id).map(mm => mm.ministry_id),
         unavailableDates: (m.unavailable_dates || []).map((d: string) => d),
+        createdAt: m.created_at,
       })));
     }
   }, []);
