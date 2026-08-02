@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { useStore } from "@/store/StoreContext";
-import { MINISTRY_COLORS } from "@/types";
-import { getMinistryIcon } from "@/lib/ministryIcons";
-import { TrendingUp, Crown, PieChart } from "lucide-react";
+import { Crown, PieChart, Clock, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MONTH_NAMES = [
@@ -16,8 +14,10 @@ interface Props {
   onSelectDate?: (date: string) => void;
 }
 
+const DAY_MS = 86400000;
+
 export function HomeDashboard({ year, month }: Props) {
-  const { schedules, ministries, members } = useStore();
+  const { schedules, members } = useStore();
 
   const monthSchedules = useMemo(
     () =>
@@ -40,16 +40,6 @@ export function HomeDashboard({ year, month }: Props) {
     [schedules, prevYear, prevMonth]
   );
 
-  const topMinistries = useMemo(() => {
-    const map = new Map<string, number>();
-    monthSchedules.forEach(s => map.set(s.ministryId, (map.get(s.ministryId) || 0) + 1));
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => ({ ministry: ministries.find(m => m.id === id), count }))
-      .filter(x => x.ministry);
-  }, [monthSchedules, ministries]);
-
   const getTopMembers = (list: typeof schedules, n = 3) => {
     const map = new Map<string, number>();
     list.forEach(s => s.memberIds.forEach(mid => map.set(mid, (map.get(mid) || 0) + 1)));
@@ -66,71 +56,98 @@ export function HomeDashboard({ year, month }: Props) {
   const topCurrent = useMemo(() => getTopMembers(monthSchedules), [monthSchedules, members]);
   const topPrev = useMemo(() => getTopMembers(prevMonthSchedules), [prevMonthSchedules, members]);
 
-  const maxMinistry = topMinistries[0]?.count || 1;
-
-  // Top 5 members over the last 3 months (including the displayed month), by % of all assignments
-  const topQuarter = useMemo(() => {
-    const start = new Date(year, month - 2, 1);
-    const end = new Date(year, month + 1, 1);
-    const inWindow = schedules.filter(s => {
-      const d = new Date(s.date + "T12:00:00");
-      return d >= start && d < end;
+  // 1. Pessoas há mais tempo sem servir (última escala realizada)
+  const idleMembers = useMemo(() => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const lastServed = new Map<string, number>();
+    schedules.forEach(s => {
+      const t = new Date(s.date + "T12:00:00").getTime();
+      if (t > today.getTime()) return; // apenas escalas já realizadas
+      s.memberIds.forEach(mid => {
+        const prev = lastServed.get(mid);
+        if (prev === undefined || t > prev) lastServed.set(mid, t);
+      });
     });
-    const total = inWindow.reduce((a, s) => a + s.memberIds.length, 0);
-    const map = new Map<string, number>();
-    inWindow.forEach(s => s.memberIds.forEach(mid => map.set(mid, (map.get(mid) || 0) + 1)));
-    const list = [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => {
-        const member = members.find(m => m.id === id);
-        return member ? { member, count, pct: total > 0 ? (count / total) * 100 : 0 } : null;
+    return members
+      .map(member => {
+        const last = lastServed.get(member.id);
+        return {
+          member,
+          days: last === undefined ? null : Math.max(0, Math.round((today.getTime() - last) / DAY_MS)),
+        };
       })
-      .filter((x): x is { member: typeof members[number]; count: number; pct: number } => !!x);
-    return { list, total, months: [month - 2, month - 1, month].map(m => MONTH_NAMES[(m + 12) % 12]) };
-  }, [schedules, members, year, month]);
+      .sort((a, b) => {
+        if (a.days === null && b.days === null) return a.member.name.localeCompare(b.member.name);
+        if (a.days === null) return -1;
+        if (b.days === null) return 1;
+        return b.days - a.days;
+      })
+      .slice(0, 5);
+  }, [schedules, members]);
+
+  const maxIdle = Math.max(1, ...idleMembers.map(i => i.days ?? 0));
+
+  // 3. Voluntários sobrecarregados (mês exibido)
+  const overloaded = useMemo(() => getTopMembers(monthSchedules, 5), [monthSchedules, members]);
+  const maxOverload = overloaded[0]?.count || 1;
+
+  // 4. Novos membros
+  const newMembers = useMemo(() => {
+    const now = Date.now();
+    const served = new Set<string>();
+    schedules.forEach(s => s.memberIds.forEach(mid => served.add(mid)));
+    return [...members]
+      .filter(m => !!m.createdAt)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 5)
+      .map(member => ({
+        member,
+        days: Math.max(0, Math.round((now - new Date(member.createdAt!).getTime()) / DAY_MS)),
+        served: served.has(member.id),
+      }));
+  }, [members, schedules]);
 
   const initialsOf = (name: string) =>
     name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-      {/* Ministérios mais ativos */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      {/* Pessoas há mais tempo sem servir */}
       <div className="content-card">
         <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          <h3 className="section-title">Ministérios ativos</h3>
+          <Clock className="h-4 w-4 text-primary" />
+          <h3 className="section-title">Há mais tempo sem servir</h3>
         </div>
         <div className="p-3 sm:p-4 space-y-2.5">
-          <p className="eyebrow">{MONTH_NAMES[month]} · {monthSchedules.length} escalas</p>
-          {topMinistries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Sem dados no mês.</p>
+          <p className="eyebrow">Top 5 · membros cadastrados</p>
+          {idleMembers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Sem membros cadastrados.</p>
           ) : (
-            topMinistries.map(({ ministry, count }) => {
-              const color = MINISTRY_COLORS[ministry!.colorIndex % MINISTRY_COLORS.length];
-              const Icon = getMinistryIcon(ministry!.name);
-              const pct = (count / maxMinistry) * 100;
-              return (
-                <div key={ministry!.id} className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-6 w-6 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `hsl(${color} / 0.18)`, color: `hsl(${color})` }}
-                    >
-                      <Icon className="h-3 w-3" />
-                    </span>
-                    <span className="text-sm font-medium truncate flex-1">{ministry!.name}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: `hsl(${color})` }}
-                    />
-                  </div>
+            idleMembers.map((entry, idx) => (
+              <div key={entry.member.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
+                      idx === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                    )}
+                  >
+                    {idx === 0 ? initialsOf(entry.member.name) : `${idx + 1}º`}
+                  </span>
+                  <span className="text-sm font-medium truncate flex-1">{entry.member.name}</span>
+                  <span className="text-xs font-semibold tabular-nums text-primary whitespace-nowrap">
+                    {entry.days === null ? "Nunca participou" : `${entry.days} d`}
+                  </span>
                 </div>
-              );
-            })
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${entry.days === null ? 100 : Math.min(100, (entry.days / maxIdle) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -207,18 +224,18 @@ export function HomeDashboard({ year, month }: Props) {
         </div>
       </div>
 
-      {/* % dos que mais serviram nos últimos 3 meses */}
+      {/* Voluntários sobrecarregados */}
       <div className="content-card">
         <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
           <PieChart className="h-4 w-4 text-primary" />
-          <h3 className="section-title">Top 5 · 3 meses</h3>
+          <h3 className="section-title">Voluntários sobrecarregados</h3>
         </div>
         <div className="p-3 sm:p-4 space-y-2.5">
-          <p className="eyebrow">{topQuarter.months.join(" · ")} · {topQuarter.total} participações</p>
-          {topQuarter.list.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Sem dados no período.</p>
+          <p className="eyebrow">{MONTH_NAMES[month]} · {monthSchedules.length} escalas</p>
+          {overloaded.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Sem dados no mês.</p>
           ) : (
-            topQuarter.list.map((entry, idx) => (
+            overloaded.map((entry, idx) => (
               <div key={entry.member.id} className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span
@@ -231,15 +248,56 @@ export function HomeDashboard({ year, month }: Props) {
                   </span>
                   <span className="text-sm font-medium truncate flex-1">{entry.member.name}</span>
                   <span className="text-xs font-semibold tabular-nums text-primary">
-                    {entry.pct.toFixed(1)}%
+                    {entry.count} {entry.count === 1 ? "escala" : "escalas"}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${Math.min(100, entry.pct)}%` }}
+                    style={{ width: `${Math.min(100, (entry.count / maxOverload) * 100)}%` }}
                   />
                 </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Novos membros */}
+      <div className="content-card">
+        <div className="card-header-pad flex items-center gap-2 border-b bg-muted/30">
+          <UserPlus className="h-4 w-4 text-primary" />
+          <h3 className="section-title">Novos membros</h3>
+        </div>
+        <div className="p-3 sm:p-4 space-y-2.5">
+          <p className="eyebrow">Últimos 5 cadastros</p>
+          {newMembers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Sem cadastros recentes.</p>
+          ) : (
+            newMembers.map((entry, idx) => (
+              <div key={entry.member.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
+                      idx === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                    )}
+                  >
+                    {initialsOf(entry.member.name)}
+                  </span>
+                  <span className="text-sm font-medium truncate flex-1">{entry.member.name}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                    {entry.days === 0 ? "hoje" : `${entry.days} d`}
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    entry.served ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {entry.served ? "Primeira escala realizada" : "Ainda não escalado"}
+                </span>
               </div>
             ))
           )}
