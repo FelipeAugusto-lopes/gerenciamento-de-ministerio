@@ -134,14 +134,19 @@ export function generateRandomSchedules(params: {
     });
   });
 
-  // Last date each member served (existing schedules)
+  // Last date each member served — restricted to the selected ministries only,
+  // so proportionality/recency never counts ministries outside the selection.
+  const targetIds = new Set(targets.map(m => m.id));
   const lastServed = new Map<string, string>();
-  schedules.forEach(s =>
-    s.memberIds.forEach(id => {
-      const cur = lastServed.get(id);
-      if (!cur || s.date > cur) lastServed.set(id, s.date);
-    })
-  );
+  schedules
+    .filter(s => targetIds.has(s.ministryId))
+    .forEach(s =>
+      s.memberIds.forEach(id => {
+        const cur = lastServed.get(id);
+        if (!cur || s.date > cur) lastServed.set(id, s.date);
+      })
+    );
+
 
   // Running counters for this generation
   const genMinistry = new Map<string, number>();
