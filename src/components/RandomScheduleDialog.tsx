@@ -5,7 +5,7 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryOrder, formatDate } from "@/lib/helpers";
 import {
-  AUTO_MINISTRY_NAMES,
+  
   generateRandomSchedules,
   getAutoMinistries,
   getMonthDates,
