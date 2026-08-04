@@ -5,7 +5,7 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryOrder, formatDate } from "@/lib/helpers";
 import {
-  AUTO_MINISTRY_NAMES,
+  
   generateRandomSchedules,
   getAutoMinistries,
   getMonthDates,
@@ -37,10 +37,27 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
   const [preview, setPreview] = useState<GeneratedSchedule[] | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const autoMinistries = useMemo(
-    () => getAutoMinistries(ministries).sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name)),
+  const sortedMinistries = useMemo(
+    () => [...ministries].sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name)),
     [ministries]
   );
+
+  const defaultMinistryIds = useMemo(
+    () => getAutoMinistries(ministries).map(m => m.id),
+    [ministries]
+  );
+
+  const [selectedMinistryIds, setSelectedMinistryIds] = useState<string[] | null>(null);
+  const activeMinistryIds = selectedMinistryIds ?? defaultMinistryIds;
+
+  const toggleMinistry = (id: string) =>
+    setSelectedMinistryIds(
+      activeMinistryIds.includes(id)
+        ? activeMinistryIds.filter(x => x !== id)
+        : [...activeMinistryIds, id]
+    );
+
+  const allSelected = activeMinistryIds.length === sortedMinistries.length;
 
   const dates = mode === "full" ? monthDates : [...picked].sort();
 
@@ -52,7 +69,16 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
       toast.error("Escolha pelo menos um dia.");
       return;
     }
-    const result = generateRandomSchedules({ dates, ministries, members, schedules });
+    if (activeMinistryIds.length === 0) {
+      toast.error("Escolha pelo menos um ministério.");
+      return;
+    }
+    const result = generateRandomSchedules({
+      dates,
+      ministries: sortedMinistries.filter(m => activeMinistryIds.includes(m.id)),
+      members,
+      schedules,
+    });
     if (result.length === 0) {
       toast.error("Não foi possível gerar", {
         description: "Sem histórico suficiente nesses ministérios ou sem membros disponíveis.",
@@ -61,6 +87,7 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
     }
     setPreview(result);
   };
+
 
   const handleApply = async () => {
     if (!preview) return;
@@ -108,26 +135,41 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
         {!preview ? (
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Ministérios incluídos
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ministérios a gerar
+                </p>
+                <button
+                  onClick={() =>
+                    setSelectedMinistryIds(allSelected ? [] : sortedMinistries.map(m => m.id))
+                  }
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {allSelected ? "Limpar" : "Selecionar todos"}
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {AUTO_MINISTRY_NAMES.map(n => {
-                  const exists = autoMinistries.some(m => m.name.toLowerCase() === n.toLowerCase());
+                {sortedMinistries.map(m => {
+                  const active = activeMinistryIds.includes(m.id);
                   return (
-                    <span
-                      key={n}
+                    <button
+                      key={m.id}
+                      onClick={() => toggleMinistry(m.id)}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs",
-                        exists ? "bg-primary/10 border-primary/30 text-primary" : "opacity-40 line-through"
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        active
+                          ? "bg-primary/10 border-primary/40 text-primary font-medium"
+                          : "border-border/60 text-muted-foreground hover:bg-muted/50"
                       )}
                     >
-                      {n}
-                    </span>
+                      {m.name}
+                    </button>
                   );
                 })}
               </div>
+              <p className="meta-text mt-2">{activeMinistryIds.length} ministério(s) selecionado(s)</p>
             </div>
+
 
             <div className="flex items-center rounded-full border border-border/60 bg-muted/40 p-0.5 w-fit">
               {(["full", "some"] as const).map(m => (
