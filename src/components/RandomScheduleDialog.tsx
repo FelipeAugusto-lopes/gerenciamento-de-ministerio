@@ -135,26 +135,41 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
         {!preview ? (
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Ministérios incluídos
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ministérios a gerar
+                </p>
+                <button
+                  onClick={() =>
+                    setSelectedMinistryIds(allSelected ? [] : sortedMinistries.map(m => m.id))
+                  }
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {allSelected ? "Limpar" : "Selecionar todos"}
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {AUTO_MINISTRY_NAMES.map(n => {
-                  const exists = autoMinistries.some(m => m.name.toLowerCase() === n.toLowerCase());
+                {sortedMinistries.map(m => {
+                  const active = activeMinistryIds.includes(m.id);
                   return (
-                    <span
-                      key={n}
+                    <button
+                      key={m.id}
+                      onClick={() => toggleMinistry(m.id)}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs",
-                        exists ? "bg-primary/10 border-primary/30 text-primary" : "opacity-40 line-through"
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        active
+                          ? "bg-primary/10 border-primary/40 text-primary font-medium"
+                          : "border-border/60 text-muted-foreground hover:bg-muted/50"
                       )}
                     >
-                      {n}
-                    </span>
+                      {m.name}
+                    </button>
                   );
                 })}
               </div>
+              <p className="meta-text mt-2">{activeMinistryIds.length} ministério(s) selecionado(s)</p>
             </div>
+
 
             <div className="flex items-center rounded-full border border-border/60 bg-muted/40 p-0.5 w-fit">
               {(["full", "some"] as const).map(m => (
