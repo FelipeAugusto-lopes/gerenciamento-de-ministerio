@@ -37,10 +37,27 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
   const [preview, setPreview] = useState<GeneratedSchedule[] | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const autoMinistries = useMemo(
-    () => getAutoMinistries(ministries).sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name)),
+  const sortedMinistries = useMemo(
+    () => [...ministries].sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name)),
     [ministries]
   );
+
+  const defaultMinistryIds = useMemo(
+    () => getAutoMinistries(ministries).map(m => m.id),
+    [ministries]
+  );
+
+  const [selectedMinistryIds, setSelectedMinistryIds] = useState<string[] | null>(null);
+  const activeMinistryIds = selectedMinistryIds ?? defaultMinistryIds;
+
+  const toggleMinistry = (id: string) =>
+    setSelectedMinistryIds(
+      activeMinistryIds.includes(id)
+        ? activeMinistryIds.filter(x => x !== id)
+        : [...activeMinistryIds, id]
+    );
+
+  const allSelected = activeMinistryIds.length === sortedMinistries.length;
 
   const dates = mode === "full" ? monthDates : [...picked].sort();
 
@@ -52,7 +69,16 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
       toast.error("Escolha pelo menos um dia.");
       return;
     }
-    const result = generateRandomSchedules({ dates, ministries, members, schedules });
+    if (activeMinistryIds.length === 0) {
+      toast.error("Escolha pelo menos um ministério.");
+      return;
+    }
+    const result = generateRandomSchedules({
+      dates,
+      ministries: sortedMinistries.filter(m => activeMinistryIds.includes(m.id)),
+      members,
+      schedules,
+    });
     if (result.length === 0) {
       toast.error("Não foi possível gerar", {
         description: "Sem histórico suficiente nesses ministérios ou sem membros disponíveis.",
@@ -61,6 +87,7 @@ export function RandomScheduleDialog({ open, onOpenChange, onGenerated }: Props)
     }
     setPreview(result);
   };
+
 
   const handleApply = async () => {
     if (!preview) return;
