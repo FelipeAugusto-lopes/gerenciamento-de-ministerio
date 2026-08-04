@@ -114,7 +114,8 @@ export function generateRandomSchedules(params: {
   schedules: Schedule[];
 }): GeneratedSchedule[] {
   const { dates, ministries, members, schedules } = params;
-  const targets = getAutoMinistries(ministries);
+  // `ministries` here is already the list the user chose to generate for.
+  const targets = ministries;
   if (targets.length === 0 || dates.length === 0) return [];
 
   const sortedDates = [...dates].sort();
