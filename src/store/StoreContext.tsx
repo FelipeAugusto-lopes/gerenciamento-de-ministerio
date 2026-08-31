@@ -31,6 +31,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Helpers ---
+  // PostgREST returns at most 1000 rows per request, so link tables must be paged.
+  const fetchAllRows = useCallback(async <T,>(table: "member_ministries" | "schedule_members"): Promise<T[]> => {
+    const pageSize = 1000;
+    let from = 0;
+    const all: T[] = [];
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase.from(table).select("*").range(from, from + pageSize - 1);
+      if (error || !data || data.length === 0) break;
+      all.push(...(data as T[]));
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }, []);
+
   // --- Fetch all data ---
   const fetchMinistries = useCallback(async () => {
     const { data } = await supabase.from("ministries").select("*").order("name");
@@ -39,7 +56,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const fetchMembers = useCallback(async () => {
     const { data: membersData } = await supabase.from("members").select("*").order("name");
-    const { data: mmData } = await supabase.from("member_ministries").select("*");
+    const mmData = await fetchAllRows<{ member_id: string; ministry_id: string }>("member_ministries");
+
     if (membersData) {
       setMembers(membersData.map(m => ({
         id: m.id,
