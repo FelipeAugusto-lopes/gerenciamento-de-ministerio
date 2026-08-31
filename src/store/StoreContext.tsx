@@ -68,11 +68,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: m.created_at,
       })));
     }
-  }, []);
+  }, [fetchAllRows]);
 
   const fetchSchedules = useCallback(async () => {
     const { data: schedData } = await supabase.from("schedules").select("*").order("date", { ascending: false });
-    const { data: smData } = await supabase.from("schedule_members").select("*");
+    const smData = await fetchAllRows<{ schedule_id: string; member_id: string }>("schedule_members");
     if (schedData) {
       setSchedules(schedData.map(s => ({
         id: s.id,
@@ -83,7 +83,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         memberIds: (smData || []).filter(sm => sm.schedule_id === s.id).map(sm => sm.member_id),
       })));
     }
-  }, []);
+  }, [fetchAllRows]);
+
 
   const fetchNotifications = useCallback(async () => {
     const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
