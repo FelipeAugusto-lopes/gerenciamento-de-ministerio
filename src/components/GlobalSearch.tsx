@@ -20,7 +20,11 @@ interface GlobalSearchProps {
 
 export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const navigate = useNavigate();
-  const { members, ministries, schedules } = useStore();
+  const store = useStoreOptional();
+  const members = store?.members ?? [];
+  const ministries = store?.ministries ?? [];
+  const schedules = store?.schedules ?? [];
+
   const [query, setQuery] = useState("");
 
   useEffect(() => {
