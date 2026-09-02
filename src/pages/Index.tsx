@@ -801,6 +801,11 @@ export default function IndexPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap gap-1.5">
+                                    {s.memberIds.length === 0 && (
+                                      <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                                        Nenhum membro vinculado
+                                      </span>
+                                    )}
                                     {s.memberIds.map((mid, idx) => {
                                       const name = members.find(mm => mm.id === mid)?.name || "?";
                                       const isDup = duplicatedMemberIds.has(mid);
