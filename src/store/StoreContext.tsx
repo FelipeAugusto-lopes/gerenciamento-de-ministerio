@@ -251,3 +251,9 @@ export function useStore() {
   if (!ctx) throw new Error("useStore must be used within StoreProvider");
   return ctx;
 }
+
+/** Safe variant: returns null instead of throwing when no provider is mounted (e.g. during HMR). */
+export function useStoreOptional() {
+  return useContext(StoreContext);
+}
+
