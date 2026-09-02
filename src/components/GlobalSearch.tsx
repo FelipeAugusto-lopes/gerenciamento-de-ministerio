@@ -10,7 +10,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { useStore } from "@/store/StoreContext";
+import { useStoreOptional } from "@/store/StoreContext";
 import { formatDate } from "@/lib/helpers";
 
 interface GlobalSearchProps {
