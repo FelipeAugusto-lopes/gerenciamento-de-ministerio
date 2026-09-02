@@ -435,6 +435,11 @@ export default function SchedulesPage() {
           </div>
         ) : (
           <div className="flex flex-wrap gap-1.5">
+            {memberNames.length === 0 && (
+              <span className="rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                Nenhum membro vinculado
+              </span>
+            )}
             {memberNames.map((name, i) => (
               <button
                 key={s.memberIds[i]}

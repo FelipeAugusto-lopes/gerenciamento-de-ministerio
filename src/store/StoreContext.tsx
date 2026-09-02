@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
 import { Member, Ministry, Schedule, Notification } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,6 +30,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const schedulesFetchVersion = useRef(0);
 
   // --- Helpers ---
   // PostgREST returns at most 1000 rows per request, so link tables must be paged.
@@ -39,7 +40,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const all: T[] = [];
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const { data, error } = await supabase.from(table).select("*").range(from, from + pageSize - 1);
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
       if (error || !data || data.length === 0) break;
       all.push(...(data as T[]));
       if (data.length < pageSize) break;
@@ -71,16 +76,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [fetchAllRows]);
 
   const fetchSchedules = useCallback(async () => {
+    const requestVersion = ++schedulesFetchVersion.current;
     const { data: schedData } = await supabase.from("schedules").select("*").order("date", { ascending: false });
     const smData = await fetchAllRows<{ schedule_id: string; member_id: string }>("schedule_members");
-    if (schedData) {
+    // Schedule and link-table realtime events can arrive together. Only the newest
+    // request may update state, otherwise a slower stale response hides member names.
+    if (schedData && requestVersion === schedulesFetchVersion.current) {
+      const memberIdsBySchedule = new Map<string, string[]>();
+      smData.forEach(link => {
+        const ids = memberIdsBySchedule.get(link.schedule_id) || [];
+        ids.push(link.member_id);
+        memberIdsBySchedule.set(link.schedule_id, ids);
+      });
       setSchedules(schedData.map(s => ({
         id: s.id,
         ministryId: s.ministry_id,
         date: s.date,
         shift: s.shift as Schedule["shift"],
         status: s.status as Schedule["status"],
-        memberIds: (smData || []).filter(sm => sm.schedule_id === s.id).map(sm => sm.member_id),
+        memberIds: memberIdsBySchedule.get(s.id) || [],
       })));
     }
   }, [fetchAllRows]);
@@ -177,7 +191,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         s.memberIds.map(mid => ({ schedule_id: data.id, member_id: mid }))
       );
     }
-  }, []);
+    await fetchSchedules();
+  }, [fetchSchedules]);
 
   const updateSchedule = useCallback(async (s: Schedule) => {
     await supabase.from("schedules").update({
@@ -193,7 +208,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         s.memberIds.map(mid => ({ schedule_id: s.id, member_id: mid }))
       );
     }
-  }, []);
+    await fetchSchedules();
+  }, [fetchSchedules]);
 
   const deleteSchedule = useCallback(async (id: string) => {
     await supabase.from("schedules").delete().eq("id", id);
