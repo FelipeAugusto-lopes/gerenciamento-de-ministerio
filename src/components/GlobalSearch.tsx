@@ -10,7 +10,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { useStore } from "@/store/StoreContext";
+import { useStoreOptional } from "@/store/StoreContext";
 import { formatDate } from "@/lib/helpers";
 
 interface GlobalSearchProps {
@@ -20,7 +20,11 @@ interface GlobalSearchProps {
 
 export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const navigate = useNavigate();
-  const { members, ministries, schedules } = useStore();
+  const store = useStoreOptional();
+  const members = store?.members ?? [];
+  const ministries = store?.ministries ?? [];
+  const schedules = store?.schedules ?? [];
+
   const [query, setQuery] = useState("");
 
   useEffect(() => {
