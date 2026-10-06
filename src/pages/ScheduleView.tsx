@@ -5,6 +5,7 @@ import { MINISTRY_COLORS, type Schedule, type Shift } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { exportMonthToPDF, shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
 import { getWeekDates, shiftWeek } from "@/lib/scheduleWeek";
+import { groupByShift, groupSchedulesByDate, sameDayConflicts } from "@/lib/scheduleInsights";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ChevronLeft, ChevronRight, Search, X, FileDown, Share2, Sun, Moon,
-  LayoutGrid, List, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church,
+  LayoutGrid, List, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church, AlertTriangle,
 } from "lucide-react";
 
 type ViewMode = "mes" | "semana" | "lista";
@@ -83,6 +84,7 @@ export default function ScheduleView() {
   const monthLabel = monthLabelOf(cursor);
   const todayStr = new Date().toISOString().split("T")[0];
 
+  const conflictsByDate = useMemo(() => sameDayConflicts(schedules), [schedules]);
   const ministryById = useMemo(() => new Map(ministries.map(m => [m.id, m])), [ministries]);
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
@@ -148,21 +150,21 @@ export default function ScheduleView() {
     return cells;
   }, [year, month]);
 
+  const ministryOrder = useCallback(
+    (ministryId: string) => getMinistryOrder(ministryById.get(ministryId)?.name || ""),
+    [ministryById],
+  );
+
   const schedulesByDate = useMemo(() => {
-    const map = new Map<string, Schedule[]>();
-    filtered.forEach(s => {
-      const list = map.get(s.date) || [];
-      list.push(s);
-      map.set(s.date, list);
-    });
+    const map = groupSchedulesByDate(filtered);
     map.forEach(list =>
       list.sort((a, b) => {
         if (a.shift !== b.shift) return a.shift === "Manhã" ? -1 : 1;
-        return getMinistryOrder(ministryById.get(a.ministryId)?.name || "") - getMinistryOrder(ministryById.get(b.ministryId)?.name || "");
+        return ministryOrder(a.ministryId) - ministryOrder(b.ministryId);
       })
     );
     return map;
-  }, [filtered, ministryById]);
+  }, [filtered, ministryOrder]);
 
   // ----- Week view -----
   // A semana segue a data âncora, não o mês selecionado, e inclui dias do mês vizinho.
@@ -173,20 +175,15 @@ export default function ScheduleView() {
     [schedules, weekDateSet, scheduleMatches],
   );
   const weekSchedulesByDate = useMemo(() => {
-    const map = new Map<string, Schedule[]>();
-    weekFiltered.forEach(s => {
-      const list = map.get(s.date) || [];
-      list.push(s);
-      map.set(s.date, list);
-    });
+    const map = groupSchedulesByDate(weekFiltered);
     map.forEach(list =>
       list.sort((a, b) => {
         if (a.shift !== b.shift) return a.shift === "Manhã" ? -1 : 1;
-        return getMinistryOrder(ministryById.get(a.ministryId)?.name || "") - getMinistryOrder(ministryById.get(b.ministryId)?.name || "");
+        return ministryOrder(a.ministryId) - ministryOrder(b.ministryId);
       })
     );
     return map;
-  }, [weekFiltered, ministryById]);
+  }, [weekFiltered, ministryOrder]);
 
   const moveWeek = (delta: number) => setCursor(current => shiftWeek(current, delta));
   const weekLabel = weekDates.length === 7
@@ -229,23 +226,6 @@ export default function ScheduleView() {
 
   const dayDetailSchedules = selectedDate ? schedulesByDate.get(selectedDate) || [] : [];
 
-  // ----- Render helpers -----
-  const MinistryChip = ({ ministryId, onClick }: { ministryId: string; onClick?: () => void }) => {
-    const ministry = ministryById.get(ministryId);
-    if (!ministry) return null;
-    const Icon = getMinistryIcon(ministry.name);
-    return (
-      <button
-        onClick={onClick}
-        className="flex w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] sm:text-xs font-medium truncate hover:opacity-80 transition-opacity"
-        style={getMinistryStyle(ministry.colorIndex)}
-      >
-        <Icon className="h-3 w-3 shrink-0" />
-        <span className="truncate">{ministry.name}</span>
-      </button>
-    );
-  };
-
   const ShiftBadge = ({ shift }: { shift: Shift }) => (
     <span className={cn(
       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -258,7 +238,7 @@ export default function ScheduleView() {
 
   const ScheduleRow = ({ s, showMinistry = true }: { s: Schedule; showMinistry?: boolean }) => {
     const ministry = ministryById.get(s.ministryId);
-    const names = s.memberIds.map(id => memberById.get(id)?.name || "?");
+    const conflictIds = conflictsByDate.get(s.date);
     const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
     return (
       <button
@@ -272,12 +252,24 @@ export default function ScheduleView() {
           </span>
         )}
         <div className="flex flex-wrap gap-1">
-          {names.length === 0 ? (
+          {s.memberIds.length === 0 ? (
             <span className="text-xs text-muted-foreground italic">Nenhum membro vinculado</span>
           ) : (
-            names.map((n, i) => (
-              <span key={i} className="rounded-full bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">{n}</span>
-            ))
+            s.memberIds.map(id => {
+              const conflicted = conflictIds?.has(id);
+              return (
+                <span
+                  key={id}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    conflicted ? "bg-destructive/15 text-destructive" : "bg-muted/60 text-foreground",
+                  )}
+                  title={conflicted ? "Escalado mais de uma vez neste dia" : undefined}
+                >
+                  {memberById.get(id)?.name || "?"}
+                </span>
+              );
+            })
           )}
         </div>
       </button>
@@ -308,7 +300,7 @@ export default function ScheduleView() {
                 scope === sc ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {sc === "geral" ? "Escala Geral" : "Por Ministério"}
+              {sc === "geral" ? "Todos os Ministérios" : "Por Ministério"}
             </button>
           ))}
         </div>
@@ -452,7 +444,7 @@ export default function ScheduleView() {
                 <Select value={filterMinistry} onValueChange={setFilterMinistry}>
                   <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="all">Todos os Ministérios</SelectItem>
                     {orderedMinistries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -526,56 +518,60 @@ export default function ScheduleView() {
               </div>
             ))}
             {monthCells.map((dateStr, i) => {
-              if (!dateStr) return <div key={i} className="min-h-[72px] sm:min-h-[104px] rounded-lg bg-muted/20" />;
+              if (!dateStr) return <div key={i} className="min-h-[52px] sm:min-h-[128px] rounded-lg bg-muted/20" />;
               const daySchedules = schedulesByDate.get(dateStr) || [];
               const dayNum = Number(dateStr.split("-")[2]);
               const isToday = dateStr === todayStr;
-              const maxVisible = scope === "ministerio" ? 2 : 3;
-              const visible = daySchedules.slice(0, maxVisible);
-              const extra = daySchedules.length - visible.length;
+              const dayConflicts = conflictsByDate.get(dateStr);
+              const hasConflict = !!dayConflicts && daySchedules.some(s => s.memberIds.some(id => dayConflicts.has(id)));
+              const groups = groupByShift(daySchedules, id => getMinistryOrder(ministryById.get(id)?.name || ""));
               return (
                 <button
                   key={i}
                   onClick={() => daySchedules.length > 0 && setSelectedDate(dateStr)}
                   className={cn(
-                    "min-h-[72px] sm:min-h-[104px] rounded-lg border p-1 sm:p-1.5 text-left transition-all flex flex-col",
+                    "min-h-[52px] sm:min-h-[128px] rounded-lg border p-1 sm:p-1.5 text-left transition-all flex flex-col",
                     daySchedules.length > 0 ? "border-border/60 bg-card hover:shadow-md hover:border-primary/40 cursor-pointer" : "border-transparent",
-                    isToday && "ring-2 ring-primary/60"
+                    isToday && "ring-2 ring-primary/60",
+                    hasConflict && "border-destructive/50"
                   )}
                 >
-                  <span className={cn(
-                    "text-xs sm:text-sm font-bold mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full",
-                    isToday ? "bg-primary text-primary-foreground" : "text-foreground"
-                  )}>
-                    {dayNum}
+                  <span className="mb-1 flex items-center justify-between gap-1">
+                    <span className={cn(
+                      "text-xs sm:text-sm font-bold inline-flex h-6 w-6 items-center justify-center rounded-full",
+                      isToday ? "bg-primary text-primary-foreground" : "text-foreground"
+                    )}>
+                      {dayNum}
+                    </span>
+                    {hasConflict && <AlertTriangle className="h-3.5 w-3.5 text-destructive" aria-label="Conflito neste dia" />}
                   </span>
-                  <div className="space-y-0.5 sm:space-y-1 flex-1">
-                    {scope === "geral" ? (
-                      <>
-                        {visible.map(s => <MinistryChip key={s.id} ministryId={s.ministryId} />)}
-                        {extra > 0 && (
-                          <span className="block text-[9px] sm:text-[10px] font-semibold text-muted-foreground pl-1">+{extra} ministério{extra > 1 ? "s" : ""}</span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {visible.map(s => {
-                          const names = s.memberIds.map(id => memberById.get(id)?.name || "?");
-                          return (
-                            <div key={s.id} className="rounded-md bg-muted/50 px-1.5 py-1">
-                              <ShiftBadge shift={s.shift} />
-                              <p className="mt-0.5 text-[10px] sm:text-xs text-foreground truncate">
-                                {names.slice(0, 3).join(", ")}{names.length > 3 ? ` +${names.length - 3}` : ""}
-                              </p>
-                            </div>
-                          );
-                        })}
-                        {extra > 0 && (
-                          <span className="block text-[9px] sm:text-[10px] font-semibold text-muted-foreground pl-1">+{extra}</span>
-                        )}
-                      </>
-                    )}
+                  <div className="hidden sm:block space-y-1 flex-1">
+                    {groups.map(group => {
+                      const preview = scope === "geral"
+                        ? group.items.slice(0, 2).map(item => ministryById.get(item.ministryId)?.name || "Ministério")
+                        : group.items.flatMap(item => item.memberIds.map(id => memberById.get(id)?.name || "?")).slice(0, 2);
+                      const total = scope === "geral"
+                        ? group.items.length
+                        : group.items.reduce((sum, item) => sum + item.memberIds.length, 0);
+                      const extra = total - preview.length;
+                      return (
+                        <div key={group.shift}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {group.shift}
+                          </p>
+                          <p className="text-xs leading-snug text-foreground line-clamp-2">
+                            {preview.join(scope === "geral" ? " · " : ", ")}
+                            {extra > 0 ? ` +${extra}` : ""}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
+                  {daySchedules.length > 0 && (
+                    <span className="sm:hidden text-[10px] font-medium text-muted-foreground">
+                      {daySchedules.length} escala{daySchedules.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -691,21 +687,23 @@ export default function ScheduleView() {
           </DialogHeader>
           {selectedDate && (
             <div className="space-y-4">
-              {(["Manhã", "Noite"] as Shift[]).map(shift => {
-                const list = dayDetailSchedules.filter(s => s.shift === shift);
-                if (list.length === 0) return null;
-                return (
-                  <div key={shift}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <ShiftBadge shift={shift} />
-                      <span className="text-sm font-medium text-muted-foreground">{eventLabel(selectedDate, shift)}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {list.map(s => <ScheduleRow key={s.id} s={s} showMinistry />)}
-                    </div>
+              {conflictsByDate.get(selectedDate) && dayDetailSchedules.some(schedule => schedule.memberIds.some(id => conflictsByDate.get(selectedDate)?.has(id))) && (
+                <p className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Há pessoas escaladas mais de uma vez neste dia.
+                </p>
+              )}
+              {groupByShift(dayDetailSchedules, id => getMinistryOrder(ministryById.get(id)?.name || "")).map(group => (
+                <div key={group.shift}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShiftBadge shift={group.shift} />
+                    <span className="text-sm font-medium text-muted-foreground">{eventLabel(selectedDate, group.shift)}</span>
                   </div>
-                );
-              })}
+                  <div className="space-y-2">
+                    {group.items.map(s => <ScheduleRow key={s.id} s={s} showMinistry={scope === "geral"} />)}
+                  </div>
+                </div>
+              ))}
               {dayDetailSchedules.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma escala neste dia.</p>
               )}
