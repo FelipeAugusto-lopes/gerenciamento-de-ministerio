@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useStore } from "@/store/StoreContext";
 import { formatDate, getDayOfWeek, getMinistryStyle, getMinistryOrder, sortMinistries } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Schedule, type Shift } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { exportMonthToPDF, shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
+import { getWeekDates, shiftWeek } from "@/lib/scheduleWeek";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +32,27 @@ function monthLabelOf(d: Date): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function matchesScheduleFilters(
+  schedule: Schedule,
+  filters: {
+    ministryId: string;
+    memberId: string;
+    shift: string;
+    date: string;
+    search: string;
+  },
+  ministryName: string,
+  memberNames: string,
+): boolean {
+  if (filters.ministryId !== "all" && schedule.ministryId !== filters.ministryId) return false;
+  if (filters.memberId !== "all" && !schedule.memberIds.includes(filters.memberId)) return false;
+  if (filters.shift !== "all" && schedule.shift !== filters.shift) return false;
+  if (filters.date && schedule.date !== filters.date) return false;
+  const q = filters.search.trim().toLowerCase();
+  if (q && !ministryName.includes(q) && !memberNames.includes(q)) return false;
+  return true;
+}
+
 export default function ScheduleView() {
   const { schedules, ministries, members, loading } = useStore();
   const isMobile = useIsMobile();
@@ -39,7 +61,7 @@ export default function ScheduleView() {
   const [viewMode, setViewMode] = useState<ViewMode>(isMobile ? "lista" : "mes");
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   });
 
   // Filters
@@ -64,6 +86,20 @@ export default function ScheduleView() {
   const ministryById = useMemo(() => new Map(ministries.map(m => [m.id, m])), [ministries]);
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
+  const filters = useMemo(() => ({
+    ministryId: filterMinistry,
+    memberId: filterMember,
+    shift: filterShift,
+    date: filterDate,
+    search,
+  }), [filterMinistry, filterMember, filterShift, filterDate, search]);
+
+  const scheduleMatches = useCallback((s: Schedule) => {
+    const ministryName = (ministryById.get(s.ministryId)?.name || "").toLowerCase();
+    const memberNames = s.memberIds.map(id => memberById.get(id)?.name || "").join(" ").toLowerCase();
+    return matchesScheduleFilters(s, filters, ministryName, memberNames);
+  }, [filters, ministryById, memberById]);
+
   // ----- Filtering -----
   const monthSchedules = useMemo(() => {
     return schedules.filter(s => {
@@ -72,22 +108,10 @@ export default function ScheduleView() {
     });
   }, [schedules, year, month]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return monthSchedules.filter(s => {
-      if (scope === "ministerio" && filterMinistry !== "all" && s.ministryId !== filterMinistry) return false;
-      if (scope === "geral" && filterMinistry !== "all" && s.ministryId !== filterMinistry) return false;
-      if (filterMember !== "all" && !s.memberIds.includes(filterMember)) return false;
-      if (filterShift !== "all" && s.shift !== filterShift) return false;
-      if (filterDate && s.date !== filterDate) return false;
-      if (q) {
-        const ministryName = (ministryById.get(s.ministryId)?.name || "").toLowerCase();
-        const memberNames = s.memberIds.map(id => memberById.get(id)?.name || "").join(" ").toLowerCase();
-        if (!ministryName.includes(q) && !memberNames.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [monthSchedules, scope, filterMinistry, filterMember, filterShift, filterDate, search, ministryById, memberById]);
+  const filtered = useMemo(
+    () => monthSchedules.filter(scheduleMatches),
+    [monthSchedules, scheduleMatches],
+  );
 
   const activeFilters =
     (filterMinistry !== "all" ? 1 : 0) +
@@ -108,7 +132,7 @@ export default function ScheduleView() {
   const moveMonth = (delta: number) => setCursor(new Date(year, month + delta, 1));
   const goToday = () => {
     const d = new Date();
-    setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    setCursor(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
   };
 
   // ----- Month grid -----
@@ -141,26 +165,33 @@ export default function ScheduleView() {
   }, [filtered, ministryById]);
 
   // ----- Week view -----
-  const weekDates = useMemo(() => {
-    // Week containing the cursor's first day (or today if in same month)
-    const base = new Date(year, month, 1);
-    if (cursor.getFullYear() === new Date().getFullYear() && cursor.getMonth() === new Date().getMonth()) {
-      base.setTime(new Date().getTime());
-    }
-    const start = new Date(base);
-    start.setDate(start.getDate() - start.getDay());
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // A semana segue a data âncora, não o mês selecionado, e inclui dias do mês vizinho.
+  const weekDates = useMemo(() => getWeekDates(cursor), [cursor]);
+  const weekDateSet = useMemo(() => new Set(weekDates), [weekDates]);
+  const weekFiltered = useMemo(
+    () => schedules.filter(s => weekDateSet.has(s.date) && scheduleMatches(s)),
+    [schedules, weekDateSet, scheduleMatches],
+  );
+  const weekSchedulesByDate = useMemo(() => {
+    const map = new Map<string, Schedule[]>();
+    weekFiltered.forEach(s => {
+      const list = map.get(s.date) || [];
+      list.push(s);
+      map.set(s.date, list);
     });
-  }, [cursor, year, month]);
+    map.forEach(list =>
+      list.sort((a, b) => {
+        if (a.shift !== b.shift) return a.shift === "Manhã" ? -1 : 1;
+        return getMinistryOrder(ministryById.get(a.ministryId)?.name || "") - getMinistryOrder(ministryById.get(b.ministryId)?.name || "");
+      })
+    );
+    return map;
+  }, [weekFiltered, ministryById]);
 
-  const moveWeek = (delta: number) => {
-    const d = new Date(cursor);
-    d.setDate(d.getDate() + delta * 7);
-    setCursor(new Date(d.getFullYear(), d.getMonth(), Math.min(d.getDate(), 28)));
-  };
+  const moveWeek = (delta: number) => setCursor(current => shiftWeek(current, delta));
+  const weekLabel = weekDates.length === 7
+    ? `${formatDate(weekDates[0]).slice(0, 5)} – ${formatDate(weekDates[6]).slice(0, 5)}`
+    : monthLabel;
 
   // ----- List view grouping -----
   const listGroups = useMemo(() => {
@@ -191,7 +222,9 @@ export default function ScheduleView() {
 
   // ----- Export -----
   const exportData = { schedules, members, ministries };
-  const exportSchedules = filtered;
+  const viewingWeek = viewMode === "semana";
+  const exportSchedules = viewingWeek ? weekFiltered : filtered;
+  const exportLabel = viewingWeek ? weekLabel : monthLabel;
   const exportTitle = scope === "ministerio" && selectedMinistry ? selectedMinistry.name : undefined;
 
   const dayDetailSchedules = selectedDate ? schedulesByDate.get(selectedDate) || [] : [];
@@ -281,10 +314,10 @@ export default function ScheduleView() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportMonthToPDF(exportData, monthLabel, exportSchedules, exportTitle)}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportMonthToPDF(exportData, exportLabel, exportSchedules, exportTitle)}>
             <FileDown className="h-4 w-4" /> <span className="hidden sm:inline">Exportar PDF</span>
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => shareMonthViaWhatsApp(exportData, monthLabel, exportSchedules, exportTitle)}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => shareMonthViaWhatsApp(exportData, exportLabel, exportSchedules, exportTitle)}>
             <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">Compartilhar</span>
           </Button>
         </div>
@@ -350,7 +383,7 @@ export default function ScheduleView() {
             }}
           >
             <SelectTrigger className="h-9 w-auto min-w-[140px] font-semibold capitalize">
-              <SelectValue>{monthLabel}</SelectValue>
+              <SelectValue>{viewMode === "semana" ? weekLabel : monthLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {Array.from({ length: 25 }, (_, i) => {
@@ -554,12 +587,11 @@ export default function ScheduleView() {
       {viewMode === "semana" && (
         <div className="section-stack">
           {weekDates.map(dateStr => {
-            const daySchedules = schedulesByDate.get(dateStr) || [];
+            const daySchedules = weekSchedulesByDate.get(dateStr) || [];
             const d = new Date(dateStr + "T12:00:00");
             const isToday = dateStr === todayStr;
-            const inMonth = d.getMonth() === month;
             return (
-              <div key={dateStr} className={cn("content-card card-pad", !inMonth && "opacity-50")}>
+              <div key={dateStr} className="content-card card-pad">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold",

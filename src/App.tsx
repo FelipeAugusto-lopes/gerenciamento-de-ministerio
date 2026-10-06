@@ -12,7 +12,7 @@ import Schedules from "@/pages/Schedules";
 import Members from "@/pages/Members";
 import Ministries from "@/pages/Ministries";
 import FrequencyReport from "@/pages/FrequencyReport";
-
+import ScheduleView from "@/pages/ScheduleView";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +29,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/escalas" element={<Schedules />} />
+                <Route path="/visualizacao-escalas" element={<ScheduleView />} />
                 <Route path="/membros" element={<Members />} />
                 <Route path="/ministerios" element={<Ministries />} />
                 <Route path="/frequencia" element={<FrequencyReport />} />
