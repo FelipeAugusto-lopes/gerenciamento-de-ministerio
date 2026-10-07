@@ -4,50 +4,61 @@
 
 @layer base {
   :root {
-    --background: 40 25% 94%;
-    --foreground: 150 30% 10%;
+    /* Paleta da Igreja Nova Aliança. Componentes usam estes nomes, não hex. */
+    --ink: 23 18% 9%;
+    --chocolate: 23 38% 19%;
+    --terracotta: 11 51% 31%;
+    --clay: 12 74% 13%;
+    --cream: 44 23% 87%;
+    --mist: 199 41% 88%;
+    --petroleum: 204 45% 19%;
+    --beige: 35 48% 76%;
+    --sand: 29 29% 45%;
 
-    --card: 40 30% 99%;
-    --card-foreground: 150 30% 10%;
+    --background: 44 30% 96%;
+    --foreground: var(--ink);
 
-    --popover: 40 30% 99%;
-    --popover-foreground: 150 30% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: var(--ink);
 
-    --primary: 152 45% 28%;
-    --primary-foreground: 40 30% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: var(--ink);
 
-    --secondary: 40 40% 92%;
-    --secondary-foreground: 150 25% 18%;
+    --primary: var(--terracotta);
+    --primary-foreground: 44 30% 97%;
 
-    --muted: 40 18% 90%;
-    --muted-foreground: 150 12% 38%;
+    --secondary: var(--beige);
+    --secondary-foreground: var(--ink);
 
-    --accent: 38 80% 55%;
-    --accent-foreground: 150 25% 12%;
+    --muted: 44 22% 91%;
+    --muted-foreground: 23 14% 34%;
 
-    --destructive: 0 72% 51%;
+    --accent: var(--petroleum);
+    --accent-foreground: 44 30% 97%;
+
+    --destructive: var(--clay);
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 15% 85%;
-    --input: 40 15% 85%;
-    --ring: 152 45% 28%;
+    --border: 35 24% 80%;
+    --input: 35 22% 80%;
+    --ring: var(--terracotta);
 
-    --shadow-card: 0 1px 3px 0 hsl(152 30% 20% / 0.06), 0 1px 2px -1px hsl(152 30% 20% / 0.06);
-    --shadow-card-hover: 0 8px 24px -6px hsl(152 45% 28% / 0.16), 0 4px 8px -4px hsl(152 30% 20% / 0.08);
-    --shadow-elegant: 0 20px 40px -12px hsl(152 45% 28% / 0.25), 0 8px 16px -8px hsl(38 60% 40% / 0.15);
-    --gradient-hero: linear-gradient(100deg, hsl(152 45% 14% / 0.92) 0%, hsl(152 45% 22% / 0.78) 38%, hsl(152 45% 28% / 0.45) 62%, hsl(152 45% 28% / 0.15) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(152 45% 28%), hsl(152 55% 38%));
+    --shadow-card: 0 1px 3px 0 hsl(23 18% 9% / 0.06), 0 1px 2px -1px hsl(23 18% 9% / 0.06);
+    --shadow-card-hover: 0 8px 24px -6px hsl(11 51% 31% / 0.16), 0 4px 8px -4px hsl(23 18% 9% / 0.08);
+    --shadow-elegant: 0 20px 40px -12px hsl(23 18% 9% / 0.28), 0 8px 16px -8px hsl(11 51% 31% / 0.18);
+    --gradient-hero: linear-gradient(100deg, hsl(23 18% 9% / 0.92) 0%, hsl(23 38% 19% / 0.78) 42%, hsl(11 51% 31% / 0.4) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(11 51% 31%), hsl(23 38% 19%));
 
     --radius: 1rem;
 
-    --sidebar-background: 150 20% 16%;
-    --sidebar-foreground: 40 30% 92%;
-    --sidebar-primary: 38 80% 55%;
-    --sidebar-primary-foreground: 150 25% 12%;
-    --sidebar-accent: 150 18% 22%;
-    --sidebar-accent-foreground: 40 30% 92%;
-    --sidebar-border: 150 15% 24%;
-    --sidebar-ring: 38 80% 55%;
+    --sidebar-background: var(--ink);
+    --sidebar-foreground: var(--cream);
+    --sidebar-primary: var(--beige);
+    --sidebar-primary-foreground: var(--ink);
+    --sidebar-accent: var(--chocolate);
+    --sidebar-accent-foreground: var(--cream);
+    --sidebar-border: 23 15% 18%;
+    --sidebar-ring: var(--beige);
 
     /* Ministry colors */
     --ministry-1: 152 45% 28%;
@@ -64,25 +75,25 @@
   }
 
   .dark {
-    --background: 150 20% 8%;
-    --foreground: 40 30% 92%;
-    --card: 150 18% 12%;
-    --card-foreground: 40 30% 92%;
-    --popover: 150 18% 12%;
-    --popover-foreground: 40 30% 92%;
-    --primary: 152 45% 40%;
-    --primary-foreground: 40 30% 98%;
-    --secondary: 150 15% 18%;
-    --secondary-foreground: 40 30% 88%;
-    --muted: 150 12% 16%;
-    --muted-foreground: 40 15% 55%;
-    --accent: 38 75% 50%;
-    --accent-foreground: 150 25% 10%;
-    --destructive: 0 62.8% 30.6%;
+    --background: var(--ink);
+    --foreground: 44 23% 92%;
+    --card: 23 24% 13%;
+    --card-foreground: 44 23% 92%;
+    --popover: 23 24% 13%;
+    --popover-foreground: 44 23% 92%;
+    --primary: 11 42% 52%;
+    --primary-foreground: 44 30% 97%;
+    --secondary: 23 18% 18%;
+    --secondary-foreground: 44 23% 90%;
+    --muted: 23 14% 16%;
+    --muted-foreground: 35 18% 72%;
+    --accent: var(--mist);
+    --accent-foreground: var(--ink);
+    --destructive: 12 48% 62%;
     --destructive-foreground: 0 0% 100%;
-    --border: 150 12% 20%;
-    --input: 150 12% 20%;
-    --ring: 152 45% 40%;
+    --border: 23 14% 22%;
+    --input: 23 14% 22%;
+    --ring: 11 42% 52%;
   }
 }
 

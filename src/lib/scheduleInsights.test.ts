@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { getMinistryColor } from "@/lib/helpers";
 import {
+  buildDayBoards,
   groupByShift,
   groupSchedulesByDate,
   membersLongestWithoutServing,
@@ -134,5 +136,132 @@ describe("agrupamento por turno", () => {
     expect(groups.map(group => group.shift)).toEqual(["Manhã", "Noite"]);
     expect(groups[0].items.map(item => item.ministryId)).toEqual(["audio", "midia"]);
     expect(groups[1].items.map(item => item.ministryId)).toEqual(["projecao"]);
+  });
+});
+
+describe("modelo do dia", () => {
+  const ministries = [
+    { id: "audio", name: "Áudio", colorIndex: 2 },
+    { id: "fotos", name: "Mídia Fotos", colorIndex: 3 },
+    { id: "projecao", name: "Projeção", colorIndex: 4 },
+    { id: "transmissao", name: "Transmissão", colorIndex: 5 },
+    { id: "bercario", name: "Berçário", colorIndex: 6 },
+  ];
+  const members = [
+    { id: "ana", name: "Ana" },
+    { id: "maria", name: "Maria" },
+    { id: "joao", name: "João" },
+    { id: "elaine", name: "Elaine" },
+    { id: "rita", name: "Rita" },
+    { id: "pedro", name: "Pedro" },
+    { id: "felipe", name: "Felipe" },
+  ];
+  const day = [
+    schedule({ id: "proj-manha", date: "2026-10-04", ministryId: "projecao", shift: "Manhã", memberIds: ["pedro"] }),
+    schedule({ id: "fotos-manha", date: "2026-10-04", ministryId: "fotos", shift: "Manhã", memberIds: ["rita"] }),
+    schedule({ id: "audio-manha", date: "2026-10-04", ministryId: "audio", shift: "Manhã", memberIds: ["ana", "maria", "joao", "elaine"] }),
+    schedule({ id: "fotos-noite", date: "2026-10-04", ministryId: "fotos", shift: "Noite", memberIds: ["felipe"] }),
+    schedule({ id: "trans-noite", date: "2026-10-04", ministryId: "transmissao", shift: "Noite", memberIds: ["felipe"] }),
+    schedule({ id: "audio-noite", date: "2026-10-04", ministryId: "audio", shift: "Noite", memberIds: ["maria"] }),
+  ];
+
+  const board = () => buildDayBoards({ schedules: day, ministries, members })[0];
+
+  it("monta um dia com vários ministérios", () => {
+    const morning = board().shifts.find(shift => shift.shift === "Manhã");
+    expect(morning?.ministries.map(ministry => ministry.name)).toEqual(["Áudio", "Mídia Fotos", "Projeção"]);
+    expect(morning?.ministries.find(ministry => ministry.id === "audio")).toMatchObject({
+      color: getMinistryColor(2),
+      iconKey: "headphones",
+    });
+    expect(morning?.ministries.find(ministry => ministry.id === "fotos")?.iconKey).toBe("camera");
+    expect(morning?.ministries.find(ministry => ministry.id === "projecao")?.iconKey).toBe("monitor");
+  });
+
+  it("mantém todos os membros de um turno", () => {
+    const audio = board().shifts[0].ministries.find(ministry => ministry.id === "audio");
+    expect(audio?.people.map(person => person.name)).toEqual(["Ana", "Maria", "João", "Elaine"]);
+  });
+
+  it("separa manhã e noite com o horário de cada turno", () => {
+    expect(board().shifts.map(shift => [shift.shift, shift.time])).toEqual([
+      ["Manhã", "10:00"],
+      ["Noite", "18:00"],
+    ]);
+  });
+
+  it("omite o ministério que não tem escala no dia", () => {
+    const ids = board().shifts.flatMap(shift => shift.ministries.map(ministry => ministry.id));
+    expect(ids).not.toContain("bercario");
+    expect(ministries.some(ministry => ministry.id === "bercario")).toBe(true);
+  });
+
+  it("não marca conflito em quem aparece uma vez", () => {
+    const ana = board().shifts.flatMap(shift => shift.ministries.flatMap(ministry => ministry.people)).find(person => person.id === "ana");
+    expect(ana?.conflicted).toBe(false);
+    expect(board().conflicts.map(conflict => conflict.memberId)).not.toContain("ana");
+  });
+
+  it("mostra a pessoa escalada em dois ministérios no mesmo dia", () => {
+    const felipe = board().conflicts.find(conflict => conflict.memberId === "felipe");
+    expect(felipe?.assignments.map(place => ({
+      ministryName: place.ministryName,
+      shift: place.shift,
+      time: place.time,
+    }))).toEqual([
+      { ministryName: "Mídia Fotos", shift: "Noite", time: "18:00" },
+      { ministryName: "Transmissão", shift: "Noite", time: "18:00" },
+    ]);
+
+    const onlyPhotos = buildDayBoards({
+      schedules: day.filter(item => item.ministryId === "fotos"),
+      conflictSchedules: day,
+      ministries,
+      members,
+    })[0];
+    expect(onlyPhotos.conflicts.map(conflict => conflict.memberId)).toEqual(["felipe"]);
+    expect(onlyPhotos.conflicts[0].assignments.map(place => place.ministryName)).toEqual(["Mídia Fotos", "Transmissão"]);
+    expect(onlyPhotos.shifts.flatMap(shift => shift.ministries).every(ministry => ministry.id === "fotos")).toBe(true);
+  });
+
+  it("marca conflito entre turnos", () => {
+    const maria = board().conflicts.find(conflict => conflict.memberId === "maria");
+    expect(maria?.assignments.map(place => place.shift)).toEqual(["Manhã", "Noite"]);
+    expect(maria?.assignments.map(place => place.time)).toEqual(["10:00", "18:00"]);
+  });
+
+  it("lista cada pessoa em conflito", () => {
+    expect(board().conflicts.map(conflict => conflict.name)).toEqual(["Felipe", "Maria"]);
+  });
+
+  it("mostra todas as escalas quando a pessoa está em três no mesmo dia", () => {
+    const withThird = [
+      ...day,
+      schedule({ id: "proj-noite", date: "2026-10-04", ministryId: "projecao", shift: "Noite", memberIds: ["maria"] }),
+    ];
+    const maria = buildDayBoards({ schedules: withThird, ministries, members })[0]
+      .conflicts.find(conflict => conflict.memberId === "maria");
+    expect(maria?.assignments.map(place => ({
+      ministryName: place.ministryName,
+      shift: place.shift,
+      time: place.time,
+    }))).toEqual([
+      { ministryName: "Áudio", shift: "Manhã", time: "10:00" },
+      { ministryName: "Áudio", shift: "Noite", time: "18:00" },
+      { ministryName: "Projeção", shift: "Noite", time: "18:00" },
+    ]);
+  });
+
+  it("ordena os ministérios pela ordem já usada no sistema", () => {
+    const morning = board().shifts.find(shift => shift.shift === "Manhã");
+    expect(morning?.ministries.map(ministry => ministry.id)).toEqual(["audio", "fotos", "projecao"]);
+    const night = board().shifts.find(shift => shift.shift === "Noite");
+    expect(night?.ministries.map(ministry => ministry.id)).toEqual(["audio", "fotos", "transmissao"]);
+  });
+
+  it("inclui todos os membros escalados, sem corte", () => {
+    const listed = board().shifts.flatMap(shift => shift.ministries.flatMap(ministry => ministry.people.map(person => `${ministry.scheduleId}:${person.id}`))).sort();
+    const expected = day.flatMap(item => item.memberIds.map(id => `${item.id}:${id}`)).sort();
+    expect(listed).toEqual(expected);
   });
 });

@@ -42,19 +42,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Pular para o conteúdo
       </a>
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-card/70 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60">
+      <header className="sticky top-0 z-50 border-b border-cream/10 bg-ink text-cream">
         <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 group" aria-label="INA Escalas — Início">
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-terracotta text-cream shadow-sm transition-transform group-hover:scale-105">
               <Church className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="flex flex-col leading-none">
-              <span className="font-display text-lg font-bold tracking-tight text-foreground">INA Escalas</span>
-              <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Servir juntos</span>
+              <span className="font-display text-lg font-bold tracking-tight text-cream">INA Escalas</span>
+              <span className="text-[10px] font-medium uppercase tracking-widest text-beige">Servir juntos</span>
             </div>
           </Link>
 
-          <nav aria-label="Principal" className="hidden gap-1 xl:flex items-center rounded-full border border-border/60 bg-muted/40 p-1">
+          <nav aria-label="Principal" className="hidden gap-1 xl:flex items-center rounded-full border border-cream/15 bg-white/5 p-1">
             {navItems.map(item => {
               const active = location.pathname === item.to;
               return (
@@ -63,10 +63,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   to={item.to}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                    "relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige",
                     active
-                      ? "nav-pill-active bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-cream text-ink shadow-sm"
+                      : "text-cream/75 hover:text-cream"
                   )}
                 >
                   <item.icon className="h-4 w-4" aria-hidden="true" />
@@ -80,24 +80,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Buscar (Ctrl+K)"
-              className="hidden xl:inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 hover:bg-muted transition-colors px-3 py-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="hidden xl:inline-flex items-center gap-2 rounded-full border border-cream/20 bg-white/5 hover:bg-white/10 transition-colors px-3 py-1.5 text-xs text-cream/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige"
             >
               <Search className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Buscar…</span>
-              <kbd className="ml-1 rounded border bg-card px-1.5 py-0.5 text-[10px] font-mono">
+              <kbd className="ml-1 rounded border border-cream/20 bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-cream">
                 {isMac ? "⌘" : "Ctrl"}K
               </kbd>
             </button>
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Buscar"
-              className="xl:hidden inline-flex items-center justify-center rounded-full h-11 w-11 text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="xl:hidden inline-flex items-center justify-center rounded-full h-11 w-11 text-cream hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
             <ThemeToggle className="h-11 w-11 xl:h-9 xl:w-9" />
             <button
-              className="xl:hidden text-foreground inline-flex items-center justify-center h-11 w-11 -mr-1 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="xl:hidden text-cream inline-flex items-center justify-center h-11 w-11 -mr-1 rounded-full hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige"
               aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
               aria-expanded={mobileOpen}
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -108,7 +108,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {mobileOpen && (
-          <nav aria-label="Menu móvel" className="border-t bg-card/95 backdrop-blur-xl p-4 xl:hidden animate-fade-in space-y-1">
+          <nav aria-label="Menu móvel" className="border-t border-cream/10 bg-ink p-4 xl:hidden animate-fade-in space-y-1">
             {navItems.map(item => {
               const active = location.pathname === item.to;
               return (
@@ -120,8 +120,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors min-h-11",
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-foreground hover:bg-muted"
+                      ? "bg-terracotta text-cream shadow-sm"
+                      : "text-cream hover:bg-white/10"
                   )}
                 >
                   <item.icon className="h-5 w-5" aria-hidden="true" />
@@ -138,7 +138,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Bottom navigation (mobile) */}
       <nav
         aria-label="Navegação inferior"
-        className="xl:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
+        className="xl:hidden fixed bottom-0 inset-x-0 z-40 border-t border-cream/10 bg-ink pb-[env(safe-area-inset-bottom)]"
       >
         <ul className="grid grid-cols-6">
           {navItems.map(item => {
@@ -149,8 +149,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   to={item.to}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 px-0.5 py-2 min-h-14 text-[10px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent",
-                    active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                    "flex flex-col items-center justify-center gap-0.5 px-0.5 py-2 min-h-14 text-[10px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-beige",
+                    active ? "text-beige" : "text-cream/70 hover:text-cream"
                   )}
                 >
                   <item.icon className={cn("h-5 w-5", active && "scale-110 transition-transform")} aria-hidden="true" />

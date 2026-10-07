@@ -14,20 +14,25 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const MINISTRY_ICON_MAP: Record<string, LucideIcon> = {
-  voluntariado: Heart,
-  louvor: Music,
-  áudio: Headphones,
-  "mídia story": BookImage,
-  "mídia fotos": Camera,
-  projeção: Monitor,
-  transmissão: Radio,
-  berçário: Baby,
-  "ina kids 3-6": Smile,
-  "ina kids 7-8": Star,
-  "ina kids 9-12": Sparkles,
+const MINISTRY_ICON_MAP: Record<string, { key: string; icon: LucideIcon }> = {
+  voluntariado: { key: "heart", icon: Heart },
+  louvor: { key: "music", icon: Music },
+  áudio: { key: "headphones", icon: Headphones },
+  "mídia story": { key: "book-image", icon: BookImage },
+  "mídia fotos": { key: "camera", icon: Camera },
+  projeção: { key: "monitor", icon: Monitor },
+  transmissão: { key: "radio", icon: Radio },
+  berçário: { key: "baby", icon: Baby },
+  "ina kids 3-6": { key: "smile", icon: Smile },
+  "ina kids 7-8": { key: "star", icon: Star },
+  "ina kids 9-12": { key: "sparkles", icon: Sparkles },
 };
 
+/** Chave estável do ícone, sem componente visual. Ministérios sem ícone próprio usam "church". */
+export function getMinistryIconKey(name: string): string {
+  return MINISTRY_ICON_MAP[name.toLowerCase()]?.key || "church";
+}
+
 export function getMinistryIcon(name: string): LucideIcon {
-  return MINISTRY_ICON_MAP[name.toLowerCase()] || Church;
+  return MINISTRY_ICON_MAP[name.toLowerCase()]?.icon || Church;
 }

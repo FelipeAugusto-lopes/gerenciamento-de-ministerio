@@ -1,26 +1,55 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "@/store/StoreContext";
 import { formatDate, getDayOfWeek, getMinistryStyle, getMinistryOrder, sortMinistries } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Schedule, type Shift } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { exportMonthToPDF, shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
 import { getWeekDates, shiftWeek } from "@/lib/scheduleWeek";
-import { groupByShift, groupSchedulesByDate, sameDayConflicts } from "@/lib/scheduleInsights";
+import { buildDayBoards, groupSchedulesByDate, sameDayConflicts } from "@/lib/scheduleInsights";
+import { DayPanel, formatDayHeading } from "@/components/schedule/DayPanel";
+import { MobileScheduleAgenda } from "@/components/schedule/MobileScheduleAgenda";
+import { MonthDayCell } from "@/components/schedule/MonthDayCell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { buildMobileAgenda } from "@/lib/mobileAgenda";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ChevronLeft, ChevronRight, Search, X, FileDown, Share2, Sun, Moon,
-  LayoutGrid, List, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church, AlertTriangle,
+  LayoutGrid, List, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church,
 } from "lucide-react";
 
 type ViewMode = "mes" | "semana" | "lista";
 type Scope = "geral" | "ministerio";
 
 const WEEKDAY_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setMatches(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
+
+function useWideDesktop() {
+  return useMediaQuery("(min-width: 1280px)");
+}
+
+/** Abaixo do breakpoint `md` do Tailwind, o mesmo corte de useIsMobile. */
+function useCompactLayout() {
+  return useMediaQuery("(max-width: 767px)");
+}
 
 function eventLabel(date: string, shift: Shift): string {
   const d = new Date(date + "T12:00:00");
@@ -56,10 +85,11 @@ function matchesScheduleFilters(
 
 export default function ScheduleView() {
   const { schedules, ministries, members, loading } = useStore();
-  const isMobile = useIsMobile();
+  const wideDesktop = useWideDesktop();
+  const compactLayout = useCompactLayout();
 
   const [scope, setScope] = useState<Scope>("geral");
-  const [viewMode, setViewMode] = useState<ViewMode>(isMobile ? "lista" : "mes");
+  const [viewMode, setViewMode] = useState<ViewMode>("mes");
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -224,7 +254,26 @@ export default function ScheduleView() {
   const exportLabel = viewingWeek ? weekLabel : monthLabel;
   const exportTitle = scope === "ministerio" && selectedMinistry ? selectedMinistry.name : undefined;
 
-  const dayDetailSchedules = selectedDate ? schedulesByDate.get(selectedDate) || [] : [];
+  const monthCellBoards = useMemo(() => {
+    const dates = new Set(monthSchedules.map(schedule => schedule.date));
+    const boards = buildDayBoards({
+      schedules: filtered,
+      conflictSchedules: schedules.filter(schedule => dates.has(schedule.date)),
+      ministries,
+      members,
+    });
+    return new Map(boards.map(board => [board.date, board]));
+  }, [monthSchedules, filtered, schedules, ministries, members]);
+
+  const selectedDayBoard = selectedDate ? monthCellBoards.get(selectedDate) ?? null : null;
+
+  const agendaDays = useMemo(() => {
+    const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const todayInMonth = todayStr.startsWith(monthKey) ? todayStr : null;
+    return buildMobileAgenda([...monthCellBoards.values()], { today: todayInMonth });
+  }, [monthCellBoards, todayStr, year, month]);
+
+  const selectedDayHeading = selectedDate ? formatDayHeading(selectedDate) : null;
 
   const ShiftBadge = ({ shift }: { shift: Shift }) => (
     <span className={cn(
@@ -282,38 +331,25 @@ export default function ScheduleView() {
 
   return (
     <div className="page-stack animate-fade-in">
-      {/* Scope toggle */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1">
-          {(["geral", "ministerio"] as Scope[]).map(sc => (
-            <button
-              key={sc}
-              onClick={() => {
-                setScope(sc);
-                if (sc === "ministerio" && filterMinistry === "all" && orderedMinistries.length > 0) {
-                  setFilterMinistry(orderedMinistries[0].id);
-                }
-                if (sc === "geral") setFilterMinistry("all");
-              }}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-medium transition-all",
-                scope === sc ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {sc === "geral" ? "Todos os Ministérios" : "Por Ministério"}
-            </button>
-          ))}
+      <header className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between">
+        <div>
+          <p className="eyebrow text-petroleum">Igreja Nova Aliança</p>
+          <h1 className="page-title">Visualização de Escalas</h1>
+          <p className="page-subtitle">
+            {viewMode === "semana" ? weekLabel : monthLabel}
+            {" · "}
+            {scope === "geral" ? "Todos os Ministérios" : selectedMinistry?.name || "Por Ministério"}
+          </p>
         </div>
-
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportMonthToPDF(exportData, exportLabel, exportSchedules, exportTitle)}>
-            <FileDown className="h-4 w-4" /> <span className="hidden sm:inline">Exportar PDF</span>
+          <Button variant="outline" size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar PDF" onClick={() => exportMonthToPDF(exportData, exportLabel, exportSchedules, exportTitle)}>
+            <FileDown className="h-4 w-4" /> <span className="hidden md:inline">Exportar PDF</span>
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => shareMonthViaWhatsApp(exportData, exportLabel, exportSchedules, exportTitle)}>
-            <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">Compartilhar</span>
+          <Button variant="outline" size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Compartilhar" onClick={() => shareMonthViaWhatsApp(exportData, exportLabel, exportSchedules, exportTitle)}>
+            <Share2 className="h-4 w-4" /> <span className="hidden md:inline">Compartilhar</span>
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* Ministry header (Por Ministério) */}
       {scope === "ministerio" && selectedMinistry && (
@@ -327,7 +363,7 @@ export default function ScheduleView() {
             </span>
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight">{selectedMinistry.name}</h2>
-              <p className="text-sm text-muted-foreground capitalize">{monthLabel}</p>
+              <p className="text-sm text-muted-foreground">{monthLabel}</p>
             </div>
           </div>
           {ministrySummary && (
@@ -357,14 +393,13 @@ export default function ScheduleView() {
         </div>
       )}
 
-      {/* Month navigation + view mode */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => (viewMode === "semana" ? moveWeek(-1) : moveMonth(-1))} aria-label="Anterior">
+      <div className="content-card flex flex-col gap-3 p-3 sm:p-4 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex w-full items-center gap-2 md:w-auto">
+          <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 md:h-9 md:w-9" onClick={() => (viewMode === "semana" ? moveWeek(-1) : moveMonth(-1))} aria-label="Anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={goToday}>Hoje</Button>
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => (viewMode === "semana" ? moveWeek(1) : moveMonth(1))} aria-label="Próximo">
+          <Button variant="ghost" size="sm" className="h-11 shrink-0 px-3 md:h-9" onClick={goToday}>Hoje</Button>
+          <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 md:h-9 md:w-9" onClick={() => (viewMode === "semana" ? moveWeek(1) : moveMonth(1))} aria-label="Próximo">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Select
@@ -374,14 +409,14 @@ export default function ScheduleView() {
               setCursor(new Date(y, m, 1));
             }}
           >
-            <SelectTrigger className="h-9 w-auto min-w-[140px] font-semibold capitalize">
+            <SelectTrigger className="h-11 w-auto min-w-0 flex-1 font-semibold md:h-9 md:min-w-[140px] md:flex-none">
               <SelectValue>{viewMode === "semana" ? weekLabel : monthLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {Array.from({ length: 25 }, (_, i) => {
                 const d = new Date(year, month - 12 + i, 1);
                 return (
-                  <SelectItem key={i} value={`${d.getFullYear()}-${d.getMonth()}`} className="capitalize">
+                  <SelectItem key={i} value={`${d.getFullYear()}-${d.getMonth()}`}>
                     {monthLabelOf(d)}
                   </SelectItem>
                 );
@@ -390,7 +425,28 @@ export default function ScheduleView() {
           </Select>
         </div>
 
-        <div className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1">
+        <div className="grid w-full grid-cols-2 rounded-full border border-border/70 bg-cream/60 p-1 md:inline-flex md:w-auto">
+          {(["geral", "ministerio"] as Scope[]).map(sc => (
+            <button
+              key={sc}
+              onClick={() => {
+                setScope(sc);
+                if (sc === "ministerio" && filterMinistry === "all" && orderedMinistries.length > 0) {
+                  setFilterMinistry(orderedMinistries[0].id);
+                }
+                if (sc === "geral") setFilterMinistry("all");
+              }}
+              className={cn(
+                "min-h-11 rounded-full px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum md:min-h-0 md:px-4",
+                scope === sc ? "bg-terracotta text-cream shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {sc === "geral" ? "Todos os Ministérios" : "Por Ministério"}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid w-full grid-cols-3 rounded-full border border-border/70 bg-muted/50 p-1 md:ml-auto md:flex md:w-auto">
           {([
             { id: "mes", label: "Mês", icon: LayoutGrid },
             { id: "semana", label: "Semana", icon: CalendarRange },
@@ -400,12 +456,12 @@ export default function ScheduleView() {
               key={v.id}
               onClick={() => setViewMode(v.id)}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all",
-                viewMode === v.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                "flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum md:min-h-0 md:py-1.5",
+                viewMode === v.id ? "bg-ink text-cream shadow-sm" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <v.icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{v.label}</span>
+              {v.label}
             </button>
           ))}
         </div>
@@ -422,12 +478,12 @@ export default function ScheduleView() {
             className="pl-10 h-11"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => setSearch("")} aria-label="Limpar busca" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum">
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 h-11 px-3 sm:px-4 relative">
+        <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="relative h-11 gap-2 px-3 sm:px-4" aria-label="Filtros">
           <Filter className="h-4 w-4" /> <span className="hidden sm:inline">Filtros</span>
           {activeFilters > 0 && (
             <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">{activeFilters}</span>
@@ -495,7 +551,7 @@ export default function ScheduleView() {
                 key={m.id}
                 onClick={() => setFilterMinistry(m.id)}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all",
+                  "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum",
                   active ? "shadow-sm" : "border-border/60 bg-muted/40 text-muted-foreground hover:text-foreground"
                 )}
                 style={active ? getMinistryStyle(m.colorIndex) : undefined}
@@ -510,6 +566,16 @@ export default function ScheduleView() {
 
       {/* ============ MONTH VIEW ============ */}
       {viewMode === "mes" && (
+        <>
+        <div className="md:hidden">
+          <MobileScheduleAgenda
+            days={agendaDays}
+            showPeople={scope === "ministerio"}
+            selectedDate={selectedDate}
+            onSelectDay={setSelectedDate}
+          />
+        </div>
+        <div className={cn("hidden md:block", wideDesktop && "xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-5")}>
         <div className="content-card p-2 sm:p-4">
           <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
             {WEEKDAY_SHORT.map(d => (
@@ -518,65 +584,48 @@ export default function ScheduleView() {
               </div>
             ))}
             {monthCells.map((dateStr, i) => {
-              if (!dateStr) return <div key={i} className="min-h-[52px] sm:min-h-[128px] rounded-lg bg-muted/20" />;
+              if (!dateStr) return <div key={i} className="h-[52px] rounded-lg bg-muted/20 sm:h-[188px]" />;
               const daySchedules = schedulesByDate.get(dateStr) || [];
-              const dayNum = Number(dateStr.split("-")[2]);
-              const isToday = dateStr === todayStr;
-              const dayConflicts = conflictsByDate.get(dateStr);
-              const hasConflict = !!dayConflicts && daySchedules.some(s => s.memberIds.some(id => dayConflicts.has(id)));
-              const groups = groupByShift(daySchedules, id => getMinistryOrder(ministryById.get(id)?.name || ""));
               return (
-                <button
-                  key={i}
-                  onClick={() => daySchedules.length > 0 && setSelectedDate(dateStr)}
-                  className={cn(
-                    "min-h-[52px] sm:min-h-[128px] rounded-lg border p-1 sm:p-1.5 text-left transition-all flex flex-col",
-                    daySchedules.length > 0 ? "border-border/60 bg-card hover:shadow-md hover:border-primary/40 cursor-pointer" : "border-transparent",
-                    isToday && "ring-2 ring-primary/60",
-                    hasConflict && "border-destructive/50"
-                  )}
-                >
-                  <span className="mb-1 flex items-center justify-between gap-1">
-                    <span className={cn(
-                      "text-xs sm:text-sm font-bold inline-flex h-6 w-6 items-center justify-center rounded-full",
-                      isToday ? "bg-primary text-primary-foreground" : "text-foreground"
-                    )}>
-                      {dayNum}
-                    </span>
-                    {hasConflict && <AlertTriangle className="h-3.5 w-3.5 text-destructive" aria-label="Conflito neste dia" />}
-                  </span>
-                  <div className="hidden sm:block space-y-1 flex-1">
-                    {groups.map(group => {
-                      const preview = scope === "geral"
-                        ? group.items.slice(0, 2).map(item => ministryById.get(item.ministryId)?.name || "Ministério")
-                        : group.items.flatMap(item => item.memberIds.map(id => memberById.get(id)?.name || "?")).slice(0, 2);
-                      const total = scope === "geral"
-                        ? group.items.length
-                        : group.items.reduce((sum, item) => sum + item.memberIds.length, 0);
-                      const extra = total - preview.length;
-                      return (
-                        <div key={group.shift}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {group.shift}
-                          </p>
-                          <p className="text-xs leading-snug text-foreground line-clamp-2">
-                            {preview.join(scope === "geral" ? " · " : ", ")}
-                            {extra > 0 ? ` +${extra}` : ""}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {daySchedules.length > 0 && (
-                    <span className="sm:hidden text-[10px] font-medium text-muted-foreground">
-                      {daySchedules.length} escala{daySchedules.length > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </button>
+                <MonthDayCell
+                  key={dateStr}
+                  dayNumber={Number(dateStr.split("-")[2])}
+                  isToday={dateStr === todayStr}
+                  selected={selectedDate === dateStr}
+                  board={monthCellBoards.get(dateStr) ?? null}
+                  showPeople={scope === "ministerio"}
+                  scheduleCount={daySchedules.length}
+                  onSelect={() => setSelectedDate(dateStr)}
+                />
               );
             })}
           </div>
         </div>
+        {wideDesktop && (
+          <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border border-border/70 bg-card p-5 shadow-elegant xl:block">
+            {selectedDate && selectedDayHeading ? (
+              <DayPanel
+                date={selectedDate}
+                board={selectedDayBoard}
+                reserveCloseSpace={false}
+                onSelectSchedule={scheduleId => {
+                  const found = schedules.find(item => item.id === scheduleId);
+                  if (found) setSelectedSchedule(found);
+                }}
+              />
+            ) : (
+              <div className="space-y-2 py-6">
+                <p className="eyebrow text-petroleum">Dia</p>
+                <p className="font-display text-2xl font-bold tracking-tight">Selecione um dia</p>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  A escala do dia aparece aqui, com turnos, ministérios e pessoas.
+                </p>
+              </div>
+            )}
+          </aside>
+        )}
+        </div>
+        </>
       )}
 
       {/* ============ WEEK VIEW ============ */}
@@ -678,36 +727,51 @@ export default function ScheduleView() {
       )}
 
       {/* ============ DAY DETAIL DIALOG ============ */}
-      <Dialog open={!!selectedDate} onOpenChange={open => !open && setSelectedDate(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Escalas de {selectedDate ? `${new Date(selectedDate + "T12:00:00").getDate()} de ${new Date(selectedDate + "T12:00:00").toLocaleDateString("pt-BR", { month: "long" })}` : ""}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedDate && (
-            <div className="space-y-4">
-              {conflictsByDate.get(selectedDate) && dayDetailSchedules.some(schedule => schedule.memberIds.some(id => conflictsByDate.get(selectedDate)?.has(id))) && (
-                <p className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Há pessoas escaladas mais de uma vez neste dia.
-                </p>
-              )}
-              {groupByShift(dayDetailSchedules, id => getMinistryOrder(ministryById.get(id)?.name || "")).map(group => (
-                <div key={group.shift}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShiftBadge shift={group.shift} />
-                    <span className="text-sm font-medium text-muted-foreground">{eventLabel(selectedDate, group.shift)}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.items.map(s => <ScheduleRow key={s.id} s={s} showMinistry={scope === "geral"} />)}
-                  </div>
-                </div>
-              ))}
-              {dayDetailSchedules.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma escala neste dia.</p>
-              )}
-            </div>
+      <Sheet open={!!selectedDate && compactLayout} onOpenChange={open => !open && setSelectedDate(null)}>
+        <SheetContent side="bottom" className="flex h-[92dvh] w-full max-w-none flex-col gap-0 overflow-y-auto rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {selectedDate && selectedDayHeading && (
+            <>
+              <SheetTitle className="sr-only">
+                {selectedDayHeading.weekday}, {selectedDayHeading.label}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Turnos, ministérios e pessoas escaladas neste dia.
+              </SheetDescription>
+              <DayPanel
+                date={selectedDate}
+                board={selectedDayBoard}
+                onSelectSchedule={scheduleId => {
+                  const found = schedules.find(item => item.id === scheduleId);
+                  if (found) setSelectedSchedule(found);
+                }}
+              />
+              <Button variant="outline" className="mt-6 h-11 w-full" onClick={() => setSelectedDate(null)}>
+                Fechar
+              </Button>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={!!selectedDate && !wideDesktop && !compactLayout} onOpenChange={open => !open && setSelectedDate(null)}>
+        <DialogContent className="max-h-[85vh] w-[calc(100%-1.5rem)] overflow-y-auto sm:max-w-xl">
+          {selectedDate && selectedDayHeading && (
+            <>
+              <DialogTitle className="sr-only">
+                {selectedDayHeading.weekday}, {selectedDayHeading.label}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Turnos, ministérios e pessoas escaladas neste dia.
+              </DialogDescription>
+              <DayPanel
+                date={selectedDate}
+                board={selectedDayBoard}
+                onSelectSchedule={scheduleId => {
+                  const found = schedules.find(item => item.id === scheduleId);
+                  if (found) setSelectedSchedule(found);
+                }}
+              />
+            </>
           )}
         </DialogContent>
       </Dialog>

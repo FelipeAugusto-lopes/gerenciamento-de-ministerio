@@ -28,7 +28,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
       aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={
-        "inline-flex items-center justify-center rounded-full h-9 w-9 text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
+        "inline-flex items-center justify-center rounded-full h-9 w-9 text-inherit hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige " +
         className
       }
     >

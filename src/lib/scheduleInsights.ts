@@ -1,4 +1,6 @@
-import type { Schedule, Shift } from "@/types";
+import type { Ministry, Schedule, Shift } from "@/types";
+import { getMinistryColor, getMinistryOrder } from "@/lib/helpers";
+import { getMinistryIconKey } from "@/lib/ministryIcons";
 
 export interface AssignmentRank {
   memberId: string;
@@ -21,6 +23,9 @@ export interface DayAssignment {
 }
 
 const SHIFTS: Shift[] = ["Manhã", "Noite"];
+
+/** Horários já usados na visualização. O modelo não inventa outro turno. */
+const SHIFT_TIMES: Record<Shift, string> = { "Manhã": "10:00", "Noite": "18:00" };
 
 function daysBetween(later: string, earlier: string): number {
   const a = new Date(later + "T12:00:00").getTime();
@@ -168,4 +173,148 @@ export function groupByShift<T extends { shift: string; ministryId: string }>(
       .filter(schedule => schedule.shift === shift)
       .sort((a, b) => ministryOrder(a.ministryId) - ministryOrder(b.ministryId)),
   })).filter(group => group.items.length > 0);
+}
+
+export interface DayBoardPerson {
+  id: string;
+  name: string;
+  conflicted: boolean;
+}
+
+export interface DayBoardMinistry {
+  scheduleId: string;
+  id: string;
+  name: string;
+  color: string;
+  iconKey: string;
+  people: DayBoardPerson[];
+}
+
+export interface DayBoardShift {
+  shift: Shift;
+  time: string;
+  ministries: DayBoardMinistry[];
+}
+
+export interface DayBoardConflictAssignment {
+  scheduleId: string;
+  ministryId: string;
+  ministryName: string;
+  shift: Shift;
+  time: string;
+}
+
+export interface DayBoardConflict {
+  memberId: string;
+  name: string;
+  assignments: DayBoardConflictAssignment[];
+}
+
+export interface DayBoard {
+  date: string;
+  shifts: DayBoardShift[];
+  conflicts: DayBoardConflict[];
+}
+
+type BoardSchedule = Pick<Schedule, "id" | "date" | "ministryId" | "shift" | "memberIds">;
+
+export interface DayBoardInput {
+  schedules: BoardSchedule[];
+  ministries: Pick<Ministry, "id" | "name" | "colorIndex">[];
+  members: { id: string; name: string }[];
+  /**
+   * Escalas de toda a igreja, usadas só para detectar conflito.
+   * Quando omitidas, o conflito é calculado sobre `schedules`.
+   * A pessoa só entra no aviso se também estiver numa escala visível.
+   */
+  conflictSchedules?: BoardSchedule[];
+}
+
+function shiftOrder(shift: string): number {
+  return shift === "Manhã" ? 0 : shift === "Noite" ? 1 : 2;
+}
+
+/**
+ * Monta a leitura de cada dia: turno, horário, ministério e todas as pessoas.
+ * Não corta nomes. Não acessa o banco. Não descreve a interface.
+ */
+export function buildDayBoards(input: DayBoardInput): DayBoard[] {
+  const ministryById = new Map(input.ministries.map(ministry => [ministry.id, ministry]));
+  const memberName = new Map(input.members.map(member => [member.id, member.name]));
+  const conflictsByDate = sameDayConflicts(input.conflictSchedules ?? input.schedules);
+  const visibleByDate = groupSchedulesByDate(input.schedules);
+
+  const ministryOrder = (ministryId: string) => getMinistryOrder(ministryById.get(ministryId)?.name || "");
+
+  const describeMinistry = (ministryId: string) => {
+    const ministry = ministryById.get(ministryId);
+    if (!ministry) {
+      return { name: "Ministério", color: "0 0% 50%", iconKey: "church" };
+    }
+    return {
+      name: ministry.name,
+      color: getMinistryColor(ministry.colorIndex),
+      iconKey: getMinistryIconKey(ministry.name),
+    };
+  };
+
+  return [...visibleByDate.keys()].sort().map(date => {
+    const daySchedules = visibleByDate.get(date) || [];
+    const dayConflicts = conflictsByDate.get(date);
+    const visibleMemberIds = new Set(daySchedules.flatMap(schedule => schedule.memberIds));
+
+    const shifts = groupByShift(daySchedules, ministryOrder).map(group => ({
+      shift: group.shift,
+      time: SHIFT_TIMES[group.shift],
+      ministries: group.items.map(schedule => {
+        const described = describeMinistry(schedule.ministryId);
+        const seen = new Set<string>();
+        const people = schedule.memberIds.filter(id => {
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        }).map(id => ({
+          id,
+          name: memberName.get(id) || "?",
+          conflicted: dayConflicts?.has(id) ?? false,
+        }));
+        return {
+          scheduleId: schedule.id,
+          id: schedule.ministryId,
+          name: described.name,
+          color: described.color,
+          iconKey: described.iconKey,
+          people,
+        };
+      }),
+    }));
+
+    const conflicts: DayBoardConflict[] = [];
+    dayConflicts?.forEach((assignments, memberId) => {
+      if (!visibleMemberIds.has(memberId)) return;
+      conflicts.push({
+        memberId,
+        name: memberName.get(memberId) || "?",
+        assignments: [...assignments]
+          .flatMap(assignment => {
+            if (assignment.shift !== "Manhã" && assignment.shift !== "Noite") return [];
+            const described = describeMinistry(assignment.ministryId);
+            return [{
+              scheduleId: assignment.scheduleId,
+              ministryId: assignment.ministryId,
+              ministryName: described.name,
+              shift: assignment.shift,
+              time: SHIFT_TIMES[assignment.shift],
+            }];
+          })
+          .sort((a, b) => {
+            if (a.shift !== b.shift) return shiftOrder(a.shift) - shiftOrder(b.shift);
+            return getMinistryOrder(a.ministryName) - getMinistryOrder(b.ministryName);
+          }),
+      });
+    });
+    conflicts.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    return { date, shifts, conflicts };
+  });
 }
