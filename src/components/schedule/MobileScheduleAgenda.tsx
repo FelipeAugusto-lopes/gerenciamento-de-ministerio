@@ -6,7 +6,7 @@ import {
   formatAgendaDate,
   type AgendaDay,
 } from "@/lib/mobileAgenda";
-import type { CalendarCellShift } from "@/lib/calendarCell";
+import type { CalendarCellPerson, CalendarCellShift } from "@/lib/calendarCell";
 import { cn } from "@/lib/utils";
 
 interface MobileScheduleAgendaProps {
@@ -119,17 +119,7 @@ function ShiftSummary({ shift, showPeople }: { shift: CalendarCellShift; showPeo
         {shift.shift} · {shift.time}
       </p>
       {showPeople ? (
-        <ul className="space-y-1 pl-6">
-          {people.visible.map(person => (
-            <li key={person.key} className={cn("break-words text-base leading-6", person.conflicted ? "font-semibold text-destructive" : "text-foreground")}>
-              {person.name}
-              {person.conflicted && <span className="sr-only"> em conflito</span>}
-            </li>
-          ))}
-          {people.hidden > 0 && (
-            <li className="text-sm font-medium text-muted-foreground">e mais {people.hidden}</li>
-          )}
-        </ul>
+        <PeopleByFunction people={people.visible} hidden={people.hidden} />
       ) : (
         <>
           <p className="pl-6 text-sm text-muted-foreground">
@@ -151,6 +141,35 @@ function ShiftSummary({ shift, showPeople }: { shift: CalendarCellShift; showPeo
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function PeopleByFunction({ people, hidden }: { people: CalendarCellPerson[]; hidden: number }) {
+  const groups: { label: string | null; people: CalendarCellPerson[] }[] = [];
+  for (const person of people) {
+    const label = person.functionName;
+    const current = groups[groups.length - 1];
+    if (!current || current.label !== label) groups.push({ label, people: [person] });
+    else current.people.push(person);
+  }
+
+  return (
+    <div className="space-y-2 pl-6">
+      {groups.map(group => (
+        <div key={group.label ?? group.people[0]?.key} className="space-y-1">
+          {group.label && <p className="text-sm font-semibold text-foreground">{group.label}</p>}
+          <ul className="space-y-1">
+            {group.people.map(person => (
+              <li key={person.key} className={cn("break-words text-base leading-6", person.conflicted ? "font-semibold text-destructive" : "text-foreground")}>
+                {person.name}
+                {person.conflicted && <span className="sr-only"> em conflito</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {hidden > 0 && <p className="text-sm font-medium text-muted-foreground">e mais {hidden}</p>}
     </div>
   );
 }

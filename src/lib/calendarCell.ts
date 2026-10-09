@@ -5,6 +5,7 @@ export interface CalendarCellPerson {
   id: string;
   name: string;
   conflicted: boolean;
+  functionName: string | null;
 }
 
 export interface CalendarCellMinistry {
@@ -40,12 +41,15 @@ export function calendarCellFromBoard(board: DayBoard | null | undefined): Calen
     conflictCount: board.conflicts.length,
     shifts: board.shifts.map(shift => {
       const people = shift.ministries.flatMap(ministry =>
-        ministry.people.map(person => ({
-          key: `${ministry.scheduleId}:${person.id}`,
-          id: person.id,
-          name: person.name,
-          conflicted: person.conflicted,
-        })),
+        ministry.roles.flatMap(role =>
+          role.people.map(person => ({
+            key: `${role.scheduleId}:${person.id}`,
+            id: person.id,
+            name: person.name,
+            conflicted: person.conflicted,
+            functionName: role.functionName,
+          })),
+        ),
       );
       return {
         shift: shift.shift,
@@ -53,7 +57,7 @@ export function calendarCellFromBoard(board: DayBoard | null | undefined): Calen
         ministryCount: shift.ministries.length,
         peopleCount: new Set(people.map(person => person.id)).size,
         ministries: shift.ministries.map(ministry => ({
-          key: ministry.scheduleId,
+          key: ministry.key,
           id: ministry.id,
           name: ministry.name,
           color: ministry.color,

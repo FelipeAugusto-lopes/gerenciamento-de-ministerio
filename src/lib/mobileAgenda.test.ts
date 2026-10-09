@@ -98,11 +98,15 @@ describe("agenda mobile", () => {
       schedule({ id: "7", date: "2026-10-11", ministryId: "bercario", shift: "Manhã", memberIds: ["malu"] }),
     ]), { today: null });
     const names = day.shifts[0].ministries.map(ministry => ministry.name);
-    expect(names).toHaveLength(7);
-    const preview = agendaMinistryPreview(names);
+    expect(names).toEqual(["Áudio", "Mídia", "Berçário", "Ina Kids 7-11"]);
+    expect(day.board?.shifts[0].ministries.find(ministry => ministry.name === "Mídia")?.roles.map(role => role.functionName)).toEqual([
+      "Fotos", "Story", "Projeção", "Transmissão",
+    ]);
+    const crowded = ["Áudio", "Mídia", "Berçário", "Louvor", "Voluntariado", "INA Kids", "Recepção"];
+    const preview = agendaMinistryPreview(crowded);
     expect(preview.visible).toEqual([]);
     expect(preview.hidden).toBe(7);
-    expect(names.length).toBeGreaterThan(AGENDA_MINISTRY_NAME_LIMIT);
+    expect(crowded.length).toBeGreaterThan(AGENDA_MINISTRY_NAME_LIMIT);
   });
 
   it("leva todos os membros quando o recorte é de um ministério", () => {
@@ -129,13 +133,17 @@ describe("agenda mobile", () => {
     const day11 = days.find(day => day.date === "2026-10-11");
     const day25 = days.find(day => day.date === "2026-10-25");
     expect(day11?.conflictCount).toBe(1);
-    expect(day11?.shifts.flatMap(shift => shift.ministries.map(ministry => ministry.name))).toEqual(["Projeção"]);
-    expect(day11?.board?.conflicts[0].assignments.map(place => `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
-      "Projeção · Manhã · 10:00",
+    expect(day11?.shifts.flatMap(shift => shift.ministries.map(ministry => ministry.name))).toEqual(["Mídia"]);
+    expect(day11?.board?.conflicts[0].assignments.map(place => place.functionName
+      ? `${place.ministryName} · ${place.functionName} · ${place.shift} · ${place.time}`
+      : `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
+      "Mídia · Projeção · Manhã · 10:00",
       "Áudio · Noite · 18:00",
     ]);
-    expect(day25?.board?.conflicts[0].assignments.map(place => `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
-      "Transmissão · Manhã · 10:00",
+    expect(day25?.board?.conflicts[0].assignments.map(place => place.functionName
+      ? `${place.ministryName} · ${place.functionName} · ${place.shift} · ${place.time}`
+      : `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
+      "Mídia · Transmissão · Manhã · 10:00",
       "Ina Kids 7-11 · Noite · 18:00",
     ]);
   });

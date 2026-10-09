@@ -169,13 +169,16 @@ describe("modelo do dia", () => {
 
   it("monta um dia com vários ministérios", () => {
     const morning = board().shifts.find(shift => shift.shift === "Manhã");
-    expect(morning?.ministries.map(ministry => ministry.name)).toEqual(["Áudio", "Mídia Fotos", "Projeção"]);
+    expect(morning?.ministries.map(ministry => ministry.name)).toEqual(["Áudio", "Mídia"]);
     expect(morning?.ministries.find(ministry => ministry.id === "audio")).toMatchObject({
       color: getMinistryColor(2),
       iconKey: "headphones",
     });
-    expect(morning?.ministries.find(ministry => ministry.id === "fotos")?.iconKey).toBe("camera");
-    expect(morning?.ministries.find(ministry => ministry.id === "projecao")?.iconKey).toBe("monitor");
+    const media = morning?.ministries.find(ministry => ministry.name === "Mídia");
+    expect(media?.iconKey).toBe("camera");
+    expect(media?.roles.map(role => role.functionName)).toEqual(["Fotos", "Projeção"]);
+    expect(media?.roles.find(role => role.functionName === "Fotos")?.iconKey).toBe("camera");
+    expect(media?.roles.find(role => role.functionName === "Projeção")?.iconKey).toBe("monitor");
   });
 
   it("mantém todos os membros de um turno", () => {
@@ -206,11 +209,13 @@ describe("modelo do dia", () => {
     const felipe = board().conflicts.find(conflict => conflict.memberId === "felipe");
     expect(felipe?.assignments.map(place => ({
       ministryName: place.ministryName,
+      functionName: place.functionName,
+      ministryId: place.ministryId,
       shift: place.shift,
       time: place.time,
     }))).toEqual([
-      { ministryName: "Mídia Fotos", shift: "Noite", time: "18:00" },
-      { ministryName: "Transmissão", shift: "Noite", time: "18:00" },
+      { ministryName: "Mídia", functionName: "Fotos", ministryId: "fotos", shift: "Noite", time: "18:00" },
+      { ministryName: "Mídia", functionName: "Transmissão", ministryId: "transmissao", shift: "Noite", time: "18:00" },
     ]);
 
     const onlyPhotos = buildDayBoards({
@@ -220,8 +225,8 @@ describe("modelo do dia", () => {
       members,
     })[0];
     expect(onlyPhotos.conflicts.map(conflict => conflict.memberId)).toEqual(["felipe"]);
-    expect(onlyPhotos.conflicts[0].assignments.map(place => place.ministryName)).toEqual(["Mídia Fotos", "Transmissão"]);
-    expect(onlyPhotos.shifts.flatMap(shift => shift.ministries).every(ministry => ministry.id === "fotos")).toBe(true);
+    expect(onlyPhotos.conflicts[0].assignments.map(place => place.originalName)).toEqual(["Mídia Fotos", "Transmissão"]);
+    expect(onlyPhotos.shifts.flatMap(shift => shift.ministries.flatMap(ministry => ministry.roles)).every(role => role.ministryId === "fotos")).toBe(true);
   });
 
   it("marca conflito entre turnos", () => {
@@ -241,26 +246,30 @@ describe("modelo do dia", () => {
     ];
     const maria = buildDayBoards({ schedules: withThird, ministries, members })[0]
       .conflicts.find(conflict => conflict.memberId === "maria");
+    expect(maria?.assignments).toHaveLength(3);
     expect(maria?.assignments.map(place => ({
       ministryName: place.ministryName,
+      functionName: place.functionName,
       shift: place.shift,
       time: place.time,
     }))).toEqual([
-      { ministryName: "Áudio", shift: "Manhã", time: "10:00" },
-      { ministryName: "Áudio", shift: "Noite", time: "18:00" },
-      { ministryName: "Projeção", shift: "Noite", time: "18:00" },
+      { ministryName: "Áudio", functionName: null, shift: "Manhã", time: "10:00" },
+      { ministryName: "Áudio", functionName: null, shift: "Noite", time: "18:00" },
+      { ministryName: "Mídia", functionName: "Projeção", shift: "Noite", time: "18:00" },
     ]);
   });
 
   it("ordena os ministérios pela ordem já usada no sistema", () => {
     const morning = board().shifts.find(shift => shift.shift === "Manhã");
-    expect(morning?.ministries.map(ministry => ministry.id)).toEqual(["audio", "fotos", "projecao"]);
+    expect(morning?.ministries.map(ministry => ministry.id)).toEqual(["audio", "visual:midia"]);
+    expect(morning?.ministries.find(ministry => ministry.id === "visual:midia")?.roles.map(role => role.ministryId)).toEqual(["fotos", "projecao"]);
     const night = board().shifts.find(shift => shift.shift === "Noite");
-    expect(night?.ministries.map(ministry => ministry.id)).toEqual(["audio", "fotos", "transmissao"]);
+    expect(night?.ministries.map(ministry => ministry.id)).toEqual(["audio", "visual:midia"]);
+    expect(night?.ministries.find(ministry => ministry.id === "visual:midia")?.roles.map(role => role.ministryId)).toEqual(["fotos", "transmissao"]);
   });
 
   it("inclui todos os membros escalados, sem corte", () => {
-    const listed = board().shifts.flatMap(shift => shift.ministries.flatMap(ministry => ministry.people.map(person => `${ministry.scheduleId}:${person.id}`))).sort();
+    const listed = board().shifts.flatMap(shift => shift.ministries.flatMap(ministry => ministry.roles.flatMap(role => role.people.map(person => `${role.scheduleId}:${person.id}`)))).sort();
     const expected = day.flatMap(item => item.memberIds.map(id => `${item.id}:${id}`)).sort();
     expect(listed).toEqual(expected);
   });

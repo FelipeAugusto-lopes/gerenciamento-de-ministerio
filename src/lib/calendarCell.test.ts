@@ -65,7 +65,7 @@ describe("resumo da célula do calendário", () => {
       schedule({ id: "3", date: "2026-10-11", ministryId: "kids", shift: "Manhã", memberIds: ["ana"] }),
     ]);
     expect(cell.shifts[0].ministryCount).toBe(3);
-    expect(cell.shifts[0].ministries.map(ministry => ministry.name)).toEqual(["Áudio", "Projeção", "Ina Kids 3-6"]);
+    expect(cell.shifts[0].ministries.map(ministry => ministry.name)).toEqual(["Áudio", "Mídia", "Ina Kids 3-6"]);
   });
 
   it("guarda todos os membros de um ministério", () => {
@@ -104,11 +104,13 @@ describe("resumo da célula do calendário", () => {
     const board = buildDayBoards({ schedules: visible, conflictSchedules: all, ministries, members })[0];
     const cell = calendarCellFromBoard(board);
     expect(cell.conflictCount).toBe(1);
-    expect(cell.shifts.flatMap(shift => shift.ministries.map(ministry => ministry.name))).toEqual(["Projeção"]);
-    expect(board.conflicts[0].assignments.map(place => `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
-      "Projeção · Manhã · 10:00",
+    expect(cell.shifts.flatMap(shift => shift.ministries.map(ministry => ministry.name))).toEqual(["Mídia"]);
+    expect(board.conflicts[0].assignments.map(place => place.functionName
+      ? `${place.ministryName} · ${place.functionName} · ${place.shift} · ${place.time}`
+      : `${place.ministryName} · ${place.shift} · ${place.time}`)).toEqual([
+      "Mídia · Projeção · Manhã · 10:00",
       "Áudio · Noite · 18:00",
-      "Transmissão · Noite · 18:00",
+      "Mídia · Transmissão · Noite · 18:00",
     ]);
   });
 

@@ -5,7 +5,8 @@ import { MINISTRY_COLORS, type Schedule, type Shift } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { exportMonthToPDF, shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
 import { getWeekDates, shiftWeek } from "@/lib/scheduleWeek";
-import { buildDayBoards, groupSchedulesByDate, sameDayConflicts } from "@/lib/scheduleInsights";
+import { buildDayBoards, groupSchedulesByDate, type DayBoardMinistry } from "@/lib/scheduleInsights";
+import { getVisualMinistry, listVisualMinistries, scheduleBelongsToMinistryFilter } from "@/lib/ministryGrouping";
 import { DayPanel, formatDayHeading } from "@/components/schedule/DayPanel";
 import { MobileScheduleAgenda } from "@/components/schedule/MobileScheduleAgenda";
 import { MonthDayCell } from "@/components/schedule/MonthDayCell";
@@ -71,16 +72,59 @@ function matchesScheduleFilters(
     date: string;
     search: string;
   },
+  ministry: { id: string; name: string } | undefined,
   ministryName: string,
   memberNames: string,
 ): boolean {
-  if (filters.ministryId !== "all" && schedule.ministryId !== filters.ministryId) return false;
+  if (!scheduleBelongsToMinistryFilter(ministry, filters.ministryId)) return false;
   if (filters.memberId !== "all" && !schedule.memberIds.includes(filters.memberId)) return false;
   if (filters.shift !== "all" && schedule.shift !== filters.shift) return false;
   if (filters.date && schedule.date !== filters.date) return false;
   const q = filters.search.trim().toLowerCase();
   if (q && !ministryName.includes(q) && !memberNames.includes(q)) return false;
   return true;
+}
+
+function MinistryGroup({ ministry, onOpen }: { ministry: DayBoardMinistry; onOpen: (scheduleId: string) => void }) {
+  const Icon = getMinistryIcon(ministry.name);
+  return (
+    <div
+      className="rounded-lg border border-border/60 bg-card p-2.5"
+      style={{ borderLeftWidth: 3, borderLeftColor: `hsl(${ministry.color})` }}
+    >
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: `hsl(${ministry.color})` }}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        {ministry.name}
+      </p>
+      <div className="space-y-2">
+        {ministry.roles.map(role => (
+          <button
+            key={role.scheduleId}
+            type="button"
+            onClick={() => onOpen(role.scheduleId)}
+            className="block w-full rounded-md text-left hover:bg-cream/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum"
+          >
+            {role.functionName && <p className="text-[11px] font-semibold text-foreground">{role.functionName}</p>}
+            <div className="flex flex-wrap gap-1">
+              {role.people.length === 0 ? (
+                <span className="text-xs italic text-muted-foreground">Nenhum membro vinculado</span>
+              ) : role.people.map(person => (
+                <span
+                  key={person.id}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    person.conflicted ? "bg-destructive/15 text-destructive" : "bg-muted/60 text-foreground",
+                  )}
+                >
+                  {person.name}
+                </span>
+              ))}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ScheduleView() {
@@ -108,13 +152,16 @@ export default function ScheduleView() {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   const orderedMinistries = useMemo(() => sortMinistries(ministries), [ministries]);
+  const visualMinistries = useMemo(
+    () => listVisualMinistries(orderedMinistries, getMinistryOrder),
+    [orderedMinistries],
+  );
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const monthLabel = monthLabelOf(cursor);
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const conflictsByDate = useMemo(() => sameDayConflicts(schedules), [schedules]);
   const ministryById = useMemo(() => new Map(ministries.map(m => [m.id, m])), [ministries]);
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
@@ -127,9 +174,11 @@ export default function ScheduleView() {
   }), [filterMinistry, filterMember, filterShift, filterDate, search]);
 
   const scheduleMatches = useCallback((s: Schedule) => {
-    const ministryName = (ministryById.get(s.ministryId)?.name || "").toLowerCase();
+    const ministry = ministryById.get(s.ministryId);
+    const visual = ministry ? getVisualMinistry(ministry) : null;
+    const ministryName = [ministry?.name, visual?.visualName, visual?.functionName].filter(Boolean).join(" ").toLowerCase();
     const memberNames = s.memberIds.map(id => memberById.get(id)?.name || "").join(" ").toLowerCase();
-    return matchesScheduleFilters(s, filters, ministryName, memberNames);
+    return matchesScheduleFilters(s, filters, ministry, ministryName, memberNames);
   }, [filters, ministryById, memberById]);
 
   // ----- Filtering -----
@@ -204,38 +253,28 @@ export default function ScheduleView() {
     () => schedules.filter(s => weekDateSet.has(s.date) && scheduleMatches(s)),
     [schedules, weekDateSet, scheduleMatches],
   );
-  const weekSchedulesByDate = useMemo(() => {
-    const map = groupSchedulesByDate(weekFiltered);
-    map.forEach(list =>
-      list.sort((a, b) => {
-        if (a.shift !== b.shift) return a.shift === "Manhã" ? -1 : 1;
-        return ministryOrder(a.ministryId) - ministryOrder(b.ministryId);
-      })
-    );
-    return map;
-  }, [weekFiltered, ministryOrder]);
-
   const moveWeek = (delta: number) => setCursor(current => shiftWeek(current, delta));
   const weekLabel = weekDates.length === 7
     ? `${formatDate(weekDates[0]).slice(0, 5)} – ${formatDate(weekDates[6]).slice(0, 5)}`
     : monthLabel;
 
-  // ----- List view grouping -----
-  const listGroups = useMemo(() => {
-    const dates = Array.from(schedulesByDate.keys()).sort();
-    return dates.map(date => ({
-      date,
-      manha: (schedulesByDate.get(date) || []).filter(s => s.shift === "Manhã"),
-      noite: (schedulesByDate.get(date) || []).filter(s => s.shift === "Noite"),
-    }));
-  }, [schedulesByDate]);
+  const weekBoards = useMemo(() => {
+    const dates = new Set(weekDates);
+    const boards = buildDayBoards({
+      schedules: weekFiltered,
+      conflictSchedules: schedules.filter(schedule => dates.has(schedule.date)),
+      ministries,
+      members,
+    });
+    return new Map(boards.map(board => [board.date, board]));
+  }, [weekDates, weekFiltered, schedules, ministries, members]);
 
   // ----- Ministry summary (Por Ministério) -----
-  const selectedMinistry = filterMinistry !== "all" ? ministryById.get(filterMinistry) : undefined;
+  const selectedVisual = filterMinistry !== "all" ? visualMinistries.find(item => item.id === filterMinistry) : undefined;
 
   const ministrySummary = useMemo(() => {
-    if (!selectedMinistry) return null;
-    const list = monthSchedules.filter(s => s.ministryId === selectedMinistry.id);
+    if (!selectedVisual) return null;
+    const list = monthSchedules.filter(s => scheduleBelongsToMinistryFilter(ministryById.get(s.ministryId), selectedVisual.id));
     const people = new Set(list.flatMap(s => s.memberIds));
     const events = new Set(list.map(s => s.date));
     const next = list.filter(s => s.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -245,14 +284,14 @@ export default function ScheduleView() {
       events: events.size,
       next: next ? `${formatDate(next.date)} — ${SHIFT_TIMES[next.shift]}` : "—",
     };
-  }, [selectedMinistry, monthSchedules, todayStr]);
+  }, [selectedVisual, monthSchedules, ministryById, todayStr]);
 
   // ----- Export -----
   const exportData = { schedules, members, ministries };
   const viewingWeek = viewMode === "semana";
   const exportSchedules = viewingWeek ? weekFiltered : filtered;
   const exportLabel = viewingWeek ? weekLabel : monthLabel;
-  const exportTitle = scope === "ministerio" && selectedMinistry ? selectedMinistry.name : undefined;
+  const exportTitle = scope === "ministerio" && selectedVisual ? selectedVisual.name : undefined;
 
   const monthCellBoards = useMemo(() => {
     const dates = new Set(monthSchedules.map(schedule => schedule.date));
@@ -273,6 +312,7 @@ export default function ScheduleView() {
     return buildMobileAgenda([...monthCellBoards.values()], { today: todayInMonth });
   }, [monthCellBoards, todayStr, year, month]);
 
+  const listDays = useMemo(() => Array.from(monthCellBoards.keys()).sort(), [monthCellBoards]);
   const selectedDayHeading = selectedDate ? formatDayHeading(selectedDate) : null;
 
   const ShiftBadge = ({ shift }: { shift: Shift }) => (
@@ -285,44 +325,9 @@ export default function ScheduleView() {
     </span>
   );
 
-  const ScheduleRow = ({ s, showMinistry = true }: { s: Schedule; showMinistry?: boolean }) => {
-    const ministry = ministryById.get(s.ministryId);
-    const conflictIds = conflictsByDate.get(s.date);
-    const color = ministry ? MINISTRY_COLORS[ministry.colorIndex % MINISTRY_COLORS.length] : "0 0% 50%";
-    return (
-      <button
-        onClick={() => setSelectedSchedule(s)}
-        className="w-full text-left rounded-lg border border-border/60 bg-card p-2.5 hover:shadow-sm transition-shadow"
-        style={{ borderLeftWidth: 3, borderLeftColor: `hsl(${color})` }}
-      >
-        {showMinistry && ministry && (
-          <span className="ministry-badge border mb-1.5 inline-flex" style={getMinistryStyle(ministry.colorIndex)}>
-            {ministry.name}
-          </span>
-        )}
-        <div className="flex flex-wrap gap-1">
-          {s.memberIds.length === 0 ? (
-            <span className="text-xs text-muted-foreground italic">Nenhum membro vinculado</span>
-          ) : (
-            s.memberIds.map(id => {
-              const conflicted = conflictIds?.has(id);
-              return (
-                <span
-                  key={id}
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-medium",
-                    conflicted ? "bg-destructive/15 text-destructive" : "bg-muted/60 text-foreground",
-                  )}
-                  title={conflicted ? "Escalado mais de uma vez neste dia" : undefined}
-                >
-                  {memberById.get(id)?.name || "?"}
-                </span>
-              );
-            })
-          )}
-        </div>
-      </button>
-    );
+  const openSchedule = (scheduleId: string) => {
+    const found = schedules.find(item => item.id === scheduleId);
+    if (found) setSelectedSchedule(found);
   };
 
   if (loading) {
@@ -338,7 +343,7 @@ export default function ScheduleView() {
           <p className="page-subtitle">
             {viewMode === "semana" ? weekLabel : monthLabel}
             {" · "}
-            {scope === "geral" ? "Todos os Ministérios" : selectedMinistry?.name || "Por Ministério"}
+            {scope === "geral" ? "Todos os Ministérios" : selectedVisual?.name || "Por Ministério"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -352,17 +357,17 @@ export default function ScheduleView() {
       </header>
 
       {/* Ministry header (Por Ministério) */}
-      {scope === "ministerio" && selectedMinistry && (
+      {scope === "ministerio" && selectedVisual && (
         <div className="content-card card-pad space-y-4">
           <div className="flex items-center gap-3">
             <span
               className="flex h-11 w-11 items-center justify-center rounded-xl"
-              style={{ backgroundColor: `hsl(${MINISTRY_COLORS[selectedMinistry.colorIndex % MINISTRY_COLORS.length]} / 0.15)`, color: `hsl(${MINISTRY_COLORS[selectedMinistry.colorIndex % MINISTRY_COLORS.length]})` }}
+              style={{ backgroundColor: `hsl(${MINISTRY_COLORS[selectedVisual.colorIndex % MINISTRY_COLORS.length]} / 0.15)`, color: `hsl(${MINISTRY_COLORS[selectedVisual.colorIndex % MINISTRY_COLORS.length]})` }}
             >
-              {(() => { const Icon = getMinistryIcon(selectedMinistry.name); return <Icon className="h-5 w-5" />; })()}
+              {(() => { const Icon = getMinistryIcon(selectedVisual.iconName); return <Icon className="h-5 w-5" />; })()}
             </span>
             <div>
-              <h2 className="font-display text-xl font-bold tracking-tight">{selectedMinistry.name}</h2>
+              <h2 className="font-display text-xl font-bold tracking-tight">{selectedVisual.name}</h2>
               <p className="text-sm text-muted-foreground">{monthLabel}</p>
             </div>
           </div>
@@ -431,8 +436,8 @@ export default function ScheduleView() {
               key={sc}
               onClick={() => {
                 setScope(sc);
-                if (sc === "ministerio" && filterMinistry === "all" && orderedMinistries.length > 0) {
-                  setFilterMinistry(orderedMinistries[0].id);
+                if (sc === "ministerio" && filterMinistry === "all" && visualMinistries.length > 0) {
+                  setFilterMinistry(visualMinistries[0].id);
                 }
                 if (sc === "geral") setFilterMinistry("all");
               }}
@@ -501,7 +506,7 @@ export default function ScheduleView() {
                   <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os Ministérios</SelectItem>
-                    {orderedMinistries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                    {visualMinistries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -543,7 +548,7 @@ export default function ScheduleView() {
       {/* Ministry selector (Por Ministério) */}
       {scope === "ministerio" && (
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          {orderedMinistries.map(m => {
+          {visualMinistries.map(m => {
             const active = filterMinistry === m.id;
             const Icon = getMinistryIcon(m.name);
             return (
@@ -632,7 +637,7 @@ export default function ScheduleView() {
       {viewMode === "semana" && (
         <div className="section-stack">
           {weekDates.map(dateStr => {
-            const daySchedules = weekSchedulesByDate.get(dateStr) || [];
+            const board = weekBoards.get(dateStr);
             const d = new Date(dateStr + "T12:00:00");
             const isToday = dateStr === todayStr;
             return (
@@ -649,25 +654,23 @@ export default function ScheduleView() {
                     <p className="text-xs text-muted-foreground">{formatDate(dateStr)}</p>
                   </div>
                 </div>
-                {daySchedules.length === 0 ? (
+                {!board || board.shifts.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">Sem escalas</p>
                 ) : (
                   <div className="space-y-3">
-                    {(["Manhã", "Noite"] as Shift[]).map(shift => {
-                      const list = daySchedules.filter(s => s.shift === shift);
-                      if (list.length === 0) return null;
-                      return (
-                        <div key={shift}>
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <ShiftBadge shift={shift} />
-                            <span className="text-xs text-muted-foreground">{eventLabel(dateStr, shift)}</span>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {list.map(s => <ScheduleRow key={s.id} s={s} showMinistry={scope === "geral"} />)}
-                          </div>
+                    {board.shifts.map(shift => (
+                      <div key={shift.shift}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <ShiftBadge shift={shift.shift} />
+                          <span className="text-xs text-muted-foreground">{eventLabel(dateStr, shift.shift)}</span>
                         </div>
-                      );
-                    })}
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {shift.ministries.map(ministry => (
+                            <MinistryGroup key={ministry.key} ministry={ministry} onOpen={openSchedule} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -679,16 +682,18 @@ export default function ScheduleView() {
       {/* ============ LIST VIEW ============ */}
       {viewMode === "lista" && (
         <div className="section-stack">
-          {listGroups.length === 0 && (
+          {listDays.length === 0 && (
             <div className="content-card card-pad text-center text-muted-foreground">
               Nenhuma escala encontrada neste período.
             </div>
           )}
-          {listGroups.map(g => {
-            const d = new Date(g.date + "T12:00:00");
-            const isToday = g.date === todayStr;
+          {listDays.map(date => {
+            const board = monthCellBoards.get(date);
+            if (!board) return null;
+            const d = new Date(date + "T12:00:00");
+            const isToday = date === todayStr;
             return (
-              <div key={g.date} className="content-card card-pad">
+              <div key={date} className="content-card card-pad">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold",
@@ -697,28 +702,24 @@ export default function ScheduleView() {
                     {String(d.getDate()).padStart(2, "0")}
                   </span>
                   <div>
-                    <p className="font-semibold text-foreground">{getDayOfWeek(g.date)}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(g.date)}</p>
+                    <p className="font-semibold text-foreground">{getDayOfWeek(date)}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(date)}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {([
-                    { shift: "Manhã" as Shift, list: g.manha },
-                    { shift: "Noite" as Shift, list: g.noite },
-                  ]).map(({ shift, list }) => {
-                    if (list.length === 0) return null;
-                    return (
-                      <div key={shift}>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <ShiftBadge shift={shift} />
-                          <span className="text-xs text-muted-foreground">{eventLabel(g.date, shift)}</span>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {list.map(s => <ScheduleRow key={s.id} s={s} showMinistry={scope === "geral"} />)}
-                        </div>
+                  {board.shifts.map(shift => (
+                    <div key={shift.shift}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <ShiftBadge shift={shift.shift} />
+                        <span className="text-xs text-muted-foreground">{eventLabel(date, shift.shift)}</span>
                       </div>
-                    );
-                  })}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {shift.ministries.map(ministry => (
+                          <MinistryGroup key={ministry.key} ministry={ministry} onOpen={openSchedule} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -805,9 +806,14 @@ export default function ScheduleView() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Ministério</p>
-                  {ministry && (
-                    <span className="ministry-badge border" style={getMinistryStyle(ministry.colorIndex)}>{ministry.name}</span>
-                  )}
+                  {ministry && (() => {
+                    const visual = getVisualMinistry(ministry);
+                    const colorIndex = visual.grouped
+                      ? (visualMinistries.find(item => item.id === visual.visualId)?.colorIndex ?? ministry.colorIndex)
+                      : ministry.colorIndex;
+                    const label = visual.functionName ? `${visual.visualName} · ${visual.functionName}` : visual.visualName;
+                    return <span className="ministry-badge border" style={getMinistryStyle(colorIndex)}>{label}</span>;
+                  })()}
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Escalados</p>

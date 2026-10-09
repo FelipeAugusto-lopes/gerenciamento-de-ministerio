@@ -57,7 +57,11 @@ export function DayPanel({ date, board, onSelectSchedule, reserveCloseSpace = tr
                 <ul className="space-y-0.5">
                   {conflict.assignments.map(place => (
                     <li key={place.scheduleId} className="break-words text-sm leading-6 text-foreground">
-                      {place.ministryName} · {place.shift} · {place.time}
+                      {place.functionName ? `${place.ministryName} · ${place.functionName}` : place.ministryName}
+                      {" · "}
+                      {place.shift}
+                      {" · "}
+                      {place.time}
                     </li>
                   ))}
                 </ul>
@@ -88,8 +92,12 @@ function ShiftSection({
       <div className="space-y-3">
         {shift.ministries.map(ministry => {
           const MinistryIcon = getMinistryIcon(ministry.name);
-          const content = (
-            <>
+          return (
+            <div
+              key={ministry.key}
+              className="space-y-3 rounded-xl border border-border/70 bg-card p-3.5"
+              style={{ borderLeftWidth: 3, borderLeftColor: `hsl(${ministry.color})` }}
+            >
               <div className="flex items-center gap-2.5">
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -97,48 +105,56 @@ function ShiftSection({
                 >
                   <MinistryIcon className="h-4 w-4" aria-hidden />
                 </span>
-                <span className="break-words text-base font-semibold leading-snug" style={{ color: `hsl(${ministry.color})` }}>
+                <span className="break-words text-base font-semibold uppercase leading-snug tracking-wide" style={{ color: `hsl(${ministry.color})` }}>
                   {ministry.name}
                 </span>
               </div>
-              {ministry.people.length === 0 ? (
-                <p className="text-sm italic text-muted-foreground">Nenhum membro vinculado</p>
-              ) : (
-                <ul className="space-y-1">
-                  {ministry.people.map(person => (
-                    <li
-                      key={person.id}
-                      className={cn(
-                        "break-words text-base leading-6",
-                        person.conflicted ? "font-semibold text-destructive" : "text-foreground",
+              <div className="space-y-3">
+                {ministry.roles.map(role => {
+                  const RoleIcon = getMinistryIcon(role.originalName);
+                  const body = (
+                    <>
+                      {role.functionName && (
+                        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <RoleIcon className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${role.color})` }} aria-hidden />
+                          {role.functionName}
+                        </p>
                       )}
+                      {role.people.length === 0 ? (
+                        <p className="text-sm italic text-muted-foreground">Nenhum membro vinculado</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {role.people.map(person => (
+                            <li
+                              key={person.id}
+                              className={cn(
+                                "break-words text-base leading-6",
+                                person.conflicted ? "font-semibold text-destructive" : "text-foreground",
+                              )}
+                            >
+                              {person.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  );
+                  if (!onSelectSchedule) {
+                    return <div key={role.scheduleId} className="space-y-1">{body}</div>;
+                  }
+                  return (
+                    <button
+                      key={role.scheduleId}
+                      type="button"
+                      onClick={() => onSelectSchedule(role.scheduleId)}
+                      className="w-full space-y-1 rounded-lg text-left transition-colors hover:bg-cream/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum"
                     >
-                      {person.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          );
-
-          if (!onSelectSchedule) {
-            return (
-              <div key={ministry.scheduleId} className="space-y-2 rounded-xl border border-border/70 bg-card p-3.5" style={{ borderLeftWidth: 3, borderLeftColor: `hsl(${ministry.color})` }}>
-                {content}
+                      {body}
+                    </button>
+                  );
+                })}
               </div>
-            );
-          }
-
-          return (
-            <button
-              key={ministry.scheduleId}
-              type="button"
-              onClick={() => onSelectSchedule(ministry.scheduleId)}
-              className="w-full space-y-2 rounded-xl border border-border/70 bg-card p-3.5 text-left transition-colors hover:bg-cream/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleum"
-              style={{ borderLeftWidth: 3, borderLeftColor: `hsl(${ministry.color})` }}
-            >
-              {content}
-            </button>
+            </div>
           );
         })}
       </div>

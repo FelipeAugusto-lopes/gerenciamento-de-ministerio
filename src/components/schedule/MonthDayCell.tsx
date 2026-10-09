@@ -104,7 +104,9 @@ function ShiftBlock({ shift, showPeople }: { shift: CalendarCellShift; showPeopl
           getKey={person => person.key}
           remainder={hidden => `e mais ${hidden}`}
           renderItem={(person: CalendarCellPerson) => (
-            <span className={cn(person.conflicted && "font-semibold text-destructive")}>{person.name}</span>
+            <span className={cn(person.conflicted && "font-semibold text-destructive")}>
+              {person.functionName ? `${person.functionName} · ${person.name}` : person.name}
+            </span>
           )}
         />
       ) : (

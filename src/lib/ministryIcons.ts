@@ -18,6 +18,7 @@ const MINISTRY_ICON_MAP: Record<string, { key: string; icon: LucideIcon }> = {
   voluntariado: { key: "heart", icon: Heart },
   louvor: { key: "music", icon: Music },
   áudio: { key: "headphones", icon: Headphones },
+  mídia: { key: "camera", icon: Camera },
   "mídia story": { key: "book-image", icon: BookImage },
   "mídia fotos": { key: "camera", icon: Camera },
   projeção: { key: "monitor", icon: Monitor },

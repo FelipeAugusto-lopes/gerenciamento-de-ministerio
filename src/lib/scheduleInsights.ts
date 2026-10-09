@@ -1,6 +1,12 @@
 import type { Ministry, Schedule, Shift } from "@/types";
 import { getMinistryColor, getMinistryOrder } from "@/lib/helpers";
 import { getMinistryIconKey } from "@/lib/ministryIcons";
+import {
+  getVisualMinistry,
+  mediaFunctionIndex,
+  VISUAL_MEDIA_NAME,
+  visualMediaColorIndex,
+} from "@/lib/ministryGrouping";
 
 export interface AssignmentRank {
   memberId: string;
@@ -181,13 +187,25 @@ export interface DayBoardPerson {
   conflicted: boolean;
 }
 
-export interface DayBoardMinistry {
+export interface DayBoardRole {
   scheduleId: string;
+  ministryId: string;
+  functionName: string | null;
+  originalName: string;
+  color: string;
+  iconKey: string;
+  people: DayBoardPerson[];
+}
+
+export interface DayBoardMinistry {
+  key: string;
   id: string;
   name: string;
   color: string;
   iconKey: string;
+  /** Pessoas de todas as funções, na ordem em que as funções aparecem. */
   people: DayBoardPerson[];
+  roles: DayBoardRole[];
 }
 
 export interface DayBoardShift {
@@ -200,6 +218,8 @@ export interface DayBoardConflictAssignment {
   scheduleId: string;
   ministryId: string;
   ministryName: string;
+  functionName: string | null;
+  originalName: string;
   shift: Shift;
   time: string;
 }
@@ -234,6 +254,37 @@ function shiftOrder(shift: string): number {
   return shift === "Manhã" ? 0 : shift === "Noite" ? 1 : 2;
 }
 
+function groupVisualMinistries(
+  items: {
+    described: ReturnType<typeof getVisualMinistry> & { color: string; iconKey: string };
+    role: DayBoardRole;
+  }[],
+  mediaColor: string,
+): DayBoardMinistry[] {
+  const blocks: DayBoardMinistry[] = [];
+  for (const item of items) {
+    const previous = blocks[blocks.length - 1];
+    if (previous && item.described.grouped && previous.id === item.described.visualId) {
+      previous.roles.push(item.role);
+      continue;
+    }
+    blocks.push({
+      key: item.described.grouped ? item.described.visualId : item.role.scheduleId,
+      id: item.described.visualId,
+      name: item.described.visualName,
+      color: item.described.grouped ? mediaColor : item.described.color,
+      iconKey: item.described.iconKey,
+      people: [],
+      roles: [item.role],
+    });
+  }
+  for (const block of blocks) {
+    block.roles.sort((a, b) => mediaFunctionIndex(a.originalName) - mediaFunctionIndex(b.originalName));
+    block.people = block.roles.flatMap(role => role.people);
+  }
+  return blocks;
+}
+
 /**
  * Monta a leitura de cada dia: turno, horário, ministério e todas as pessoas.
  * Não corta nomes. Não acessa o banco. Não descreve a interface.
@@ -245,16 +296,28 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
   const visibleByDate = groupSchedulesByDate(input.schedules);
 
   const ministryOrder = (ministryId: string) => getMinistryOrder(ministryById.get(ministryId)?.name || "");
+  const mediaColorIndex = visualMediaColorIndex(input.ministries);
+  const mediaColor = mediaColorIndex === null ? "0 0% 50%" : getMinistryColor(mediaColorIndex);
 
   const describeMinistry = (ministryId: string) => {
     const ministry = ministryById.get(ministryId);
     if (!ministry) {
-      return { name: "Ministério", color: "0 0% 50%", iconKey: "church" };
+      return {
+        ministryId,
+        visualId: ministryId,
+        visualName: "Ministério",
+        functionName: null as string | null,
+        originalName: "Ministério",
+        grouped: false,
+        color: "0 0% 50%",
+        iconKey: "church",
+      };
     }
+    const visual = getVisualMinistry(ministry);
     return {
-      name: ministry.name,
+      ...visual,
       color: getMinistryColor(ministry.colorIndex),
-      iconKey: getMinistryIconKey(ministry.name),
+      iconKey: getMinistryIconKey(visual.grouped ? VISUAL_MEDIA_NAME : ministry.name),
     };
   };
 
@@ -266,7 +329,7 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
     const shifts = groupByShift(daySchedules, ministryOrder).map(group => ({
       shift: group.shift,
       time: SHIFT_TIMES[group.shift],
-      ministries: group.items.map(schedule => {
+      ministries: groupVisualMinistries(group.items.map(schedule => {
         const described = describeMinistry(schedule.ministryId);
         const seen = new Set<string>();
         const people = schedule.memberIds.filter(id => {
@@ -279,14 +342,18 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
           conflicted: dayConflicts?.has(id) ?? false,
         }));
         return {
-          scheduleId: schedule.id,
-          id: schedule.ministryId,
-          name: described.name,
-          color: described.color,
-          iconKey: described.iconKey,
-          people,
+          described,
+          role: {
+            scheduleId: schedule.id,
+            ministryId: schedule.ministryId,
+            functionName: described.functionName,
+            originalName: described.originalName,
+            color: described.color,
+            iconKey: getMinistryIconKey(described.originalName),
+            people,
+          },
         };
-      }),
+      }), mediaColor),
     }));
 
     const conflicts: DayBoardConflict[] = [];
@@ -302,14 +369,19 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
             return [{
               scheduleId: assignment.scheduleId,
               ministryId: assignment.ministryId,
-              ministryName: described.name,
+              ministryName: described.visualName,
+              functionName: described.functionName,
+              originalName: described.originalName,
               shift: assignment.shift,
               time: SHIFT_TIMES[assignment.shift],
             }];
           })
           .sort((a, b) => {
             if (a.shift !== b.shift) return shiftOrder(a.shift) - shiftOrder(b.shift);
-            return getMinistryOrder(a.ministryName) - getMinistryOrder(b.ministryName);
+            const aMedia = mediaFunctionIndex(a.originalName);
+            const bMedia = mediaFunctionIndex(b.originalName);
+            if (aMedia !== 999 && bMedia !== 999) return aMedia - bMedia;
+            return getMinistryOrder(a.originalName) - getMinistryOrder(b.originalName);
           }),
       });
     });
