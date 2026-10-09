@@ -83,9 +83,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="hidden xl:inline-flex items-center gap-2 rounded-full border border-cream/20 bg-white/5 hover:bg-white/10 transition-colors px-3 py-1.5 text-xs text-cream/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-beige"
             >
               <Search className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Buscar…</span>
+              <span>Buscar</span>
               <kbd className="ml-1 rounded border border-cream/20 bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-cream">
-                {isMac ? "⌘" : "Ctrl"}K
+                {isMac ? "⌘K" : "Ctrl+K"}
               </kbd>
             </button>
             <button

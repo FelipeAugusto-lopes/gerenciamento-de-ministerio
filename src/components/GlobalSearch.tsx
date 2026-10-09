@@ -48,7 +48,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Buscar membros, ministérios, datas…"
+        placeholder="Buscar"
         value={query}
         onValueChange={setQuery}
       />
