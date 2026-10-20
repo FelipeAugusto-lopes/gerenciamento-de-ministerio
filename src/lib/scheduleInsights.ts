@@ -365,6 +365,7 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
         assignments: [...assignments]
           .flatMap(assignment => {
             if (assignment.shift !== "Manhã" && assignment.shift !== "Noite") return [];
+            const shift: Shift = assignment.shift;
             const described = describeMinistry(assignment.ministryId);
             return [{
               scheduleId: assignment.scheduleId,
@@ -372,8 +373,8 @@ export function buildDayBoards(input: DayBoardInput): DayBoard[] {
               ministryName: described.visualName,
               functionName: described.functionName,
               originalName: described.originalName,
-              shift: assignment.shift,
-              time: SHIFT_TIMES[assignment.shift],
+              shift,
+              time: SHIFT_TIMES[shift],
             }];
           })
           .sort((a, b) => {
