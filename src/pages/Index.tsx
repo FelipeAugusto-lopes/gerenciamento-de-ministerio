@@ -69,6 +69,7 @@ export default function IndexPage() {
     shift: "Manhã" as Shift,
     selectedMemberIds: [] as string[],
   });
+  const [memberSearch, setMemberSearch] = useState("");
 
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
