@@ -57,6 +57,7 @@ export default function SchedulesPage() {
     selectedMemberIds: [] as string[],
     status: "Pendente" as ScheduleStatus,
   });
+  const [memberSearch, setMemberSearch] = useState("");
 
   const showSaved = (msg = "Salvo com sucesso!") => {
     setSavedFeedback(msg);
@@ -126,6 +127,14 @@ export default function SchedulesPage() {
     return newForm.ministryId ? members.filter(m => m.ministryIds.includes(newForm.ministryId)) : members;
   }, [newForm.ministryId, members]);
 
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    if (!q) return availableMembers;
+    return availableMembers.filter(m =>
+      m.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q)
+    );
+  }, [availableMembers, memberSearch]);
+
   const getMemberConflict = (memberId: string, date: string, excludeScheduleId?: string): { ministryName: string; shift: string } | null => {
     if (!date) return null;
     for (const s of schedules) {
@@ -174,6 +183,7 @@ export default function SchedulesPage() {
     addEntry("Adicionou escala", `${memberNames} em ${ministry?.name} — ${formatDate(newForm.date)} (${newForm.shift})`);
     setShowAdd(false);
     setNewForm({ ministryId: "", date: new Date().toISOString().split("T")[0], shift: "Manhã", selectedMemberIds: [], status: "Pendente" });
+    setMemberSearch("");
     showSaved();
   };
 
@@ -590,7 +600,7 @@ export default function SchedulesPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
-              <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] }))}>
+              <Select value={newForm.ministryId} onValueChange={v => { setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] })); setMemberSearch(""); }}>
                 <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -630,13 +640,30 @@ export default function SchedulesPage() {
                 })}
               </div>
             )}
+            {newForm.ministryId && availableMembers.length > 0 && (
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                <Input
+                  value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)}
+                  placeholder="Buscar voluntário..."
+                  aria-label="Buscar voluntário"
+                  className="pl-9 h-11"
+                  autoFocus
+                />
+              </div>
+            )}
             <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
               {availableMembers.length === 0 ? (
                 <p className="text-sm text-muted-foreground p-3 text-center">
                   {newForm.ministryId ? "Nenhum membro neste ministério" : "Selecione um ministério"}
                 </p>
+              ) : filteredMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-3 text-center">
+                  Nenhum voluntário encontrado para "{memberSearch}"
+                </p>
               ) : (
-                availableMembers.map(m => {
+                filteredMembers.map(m => {
                   const isSelected = newForm.selectedMemberIds.includes(m.id);
                   const conflict = getMemberConflict(m.id, newForm.date);
                   const hasConflict = !!conflict && !isSelected;
@@ -680,7 +707,7 @@ export default function SchedulesPage() {
               <UserPlus className="h-4 w-4 mr-2" />
               Adicionar {newForm.selectedMemberIds.length > 0 ? `${newForm.selectedMemberIds.length} pessoa${newForm.selectedMemberIds.length > 1 ? "s" : ""}` : ""}
             </Button>
-            <Button variant="outline" className="h-11" onClick={() => setShowAdd(false)}>Cancelar</Button>
+            <Button variant="outline" className="h-11" onClick={() => { setShowAdd(false); setMemberSearch(""); }}>Cancelar</Button>
           </div>
         </div>
       )}

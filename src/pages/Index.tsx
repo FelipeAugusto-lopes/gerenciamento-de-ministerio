@@ -5,13 +5,14 @@ import { useStore } from "@/store/StoreContext";
 import { useAudit } from "@/store/AuditContext";
 import { getMinistryStyle, formatDate, getDayOfWeek, getMinistryOrder } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Shift, type ScheduleStatus } from "@/types";
-import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar, Trash2, AlertTriangle, X, UserPlus, FileText, Share2, CheckCircle2, Clock, XCircle, Check, Pencil, Search } from "lucide-react";
 import { exportToPDF, shareViaWhatsApp } from "@/lib/exportSchedule";
 import { getMinistryIcon } from "@/lib/ministryIcons";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { HomeDashboard } from "@/components/HomeDashboard";
@@ -68,6 +69,7 @@ export default function IndexPage() {
     shift: "Manhã" as Shift,
     selectedMemberIds: [] as string[],
   });
+  const [memberSearch, setMemberSearch] = useState("");
 
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
@@ -146,6 +148,14 @@ export default function IndexPage() {
     return members.filter(m => m.ministryIds.includes(newForm.ministryId));
   }, [newForm.ministryId, members]);
 
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    if (!q) return availableMembers;
+    return availableMembers.filter(m =>
+      m.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q)
+    );
+  }, [availableMembers, memberSearch]);
+
   // Conflict detection: find members already scheduled on the selected date
   const getMemberConflict = (memberId: string): { ministryName: string; shift: string } | null => {
     if (!selectedDate) return null;
@@ -190,6 +200,7 @@ export default function IndexPage() {
     const memberNames = newForm.selectedMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
     addEntry("Adicionou escala", `${memberNames} em ${ministry?.name} — ${formatDate(selectedDate)} (${newForm.shift})`);
     setNewForm({ ministryId: "", shift: "Manhã", selectedMemberIds: [] });
+    setMemberSearch("");
     setShowAddDialog(false);
   };
 
@@ -837,7 +848,7 @@ export default function IndexPage() {
       )}
 
       {/* Add schedule dialog — multi-member selection */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Nova Escala — {selectedDate ? formatDate(selectedDate) : ""}</DialogTitle>
@@ -845,7 +856,7 @@ export default function IndexPage() {
           <div className="space-y-4 pt-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
-              <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] }))}>
+              <Select value={newForm.ministryId} onValueChange={v => { setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] })); setMemberSearch(""); }}>
                 <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -881,13 +892,30 @@ export default function IndexPage() {
                   })}
                 </div>
               )}
+              {newForm.ministryId && availableMembers.length > 0 && (
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                  <Input
+                    value={memberSearch}
+                    onChange={e => setMemberSearch(e.target.value)}
+                    placeholder="Buscar voluntário..."
+                    aria-label="Buscar voluntário"
+                    className="pl-9 h-11 text-base"
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
                 {availableMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground p-3 text-center">
                     {newForm.ministryId ? "Nenhum membro neste ministério" : "Selecione um ministério"}
                   </p>
+                ) : filteredMembers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-3 text-center">
+                    Nenhum voluntário encontrado para "{memberSearch}"
+                  </p>
                 ) : (
-                availableMembers.map(m => {
+                filteredMembers.map(m => {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
                     const conflict = getMemberConflict(m.id);
                     const hasConflict = !!conflict;
