@@ -892,13 +892,30 @@ export default function IndexPage() {
                   })}
                 </div>
               )}
+              {newForm.ministryId && availableMembers.length > 0 && (
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                  <Input
+                    value={memberSearch}
+                    onChange={e => setMemberSearch(e.target.value)}
+                    placeholder="Buscar voluntário..."
+                    aria-label="Buscar voluntário"
+                    className="pl-9 h-11 text-base"
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
                 {availableMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground p-3 text-center">
                     {newForm.ministryId ? "Nenhum membro neste ministério" : "Selecione um ministério"}
                   </p>
+                ) : filteredMembers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-3 text-center">
+                    Nenhum voluntário encontrado para "{memberSearch}"
+                  </p>
                 ) : (
-                availableMembers.map(m => {
+                filteredMembers.map(m => {
                     const isSelected = newForm.selectedMemberIds.includes(m.id);
                     const conflict = getMemberConflict(m.id);
                     const hasConflict = !!conflict;
