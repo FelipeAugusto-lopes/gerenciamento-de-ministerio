@@ -848,7 +848,7 @@ export default function IndexPage() {
       )}
 
       {/* Add schedule dialog — multi-member selection */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Nova Escala — {selectedDate ? formatDate(selectedDate) : ""}</DialogTitle>
@@ -856,7 +856,7 @@ export default function IndexPage() {
           <div className="space-y-4 pt-2">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Ministério</label>
-              <Select value={newForm.ministryId} onValueChange={v => setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] }))}>
+              <Select value={newForm.ministryId} onValueChange={v => { setNewForm(f => ({ ...f, ministryId: v, selectedMemberIds: [] })); setMemberSearch(""); }}>
                 <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {ministries.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
