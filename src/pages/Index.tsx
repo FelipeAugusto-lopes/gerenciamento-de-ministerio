@@ -148,6 +148,14 @@ export default function IndexPage() {
     return members.filter(m => m.ministryIds.includes(newForm.ministryId));
   }, [newForm.ministryId, members]);
 
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    if (!q) return availableMembers;
+    return availableMembers.filter(m =>
+      m.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q)
+    );
+  }, [availableMembers, memberSearch]);
+
   // Conflict detection: find members already scheduled on the selected date
   const getMemberConflict = (memberId: string): { ministryName: string; shift: string } | null => {
     if (!selectedDate) return null;
@@ -192,6 +200,7 @@ export default function IndexPage() {
     const memberNames = newForm.selectedMemberIds.map(id => members.find(m => m.id === id)?.name || "?").join(", ");
     addEntry("Adicionou escala", `${memberNames} em ${ministry?.name} — ${formatDate(selectedDate)} (${newForm.shift})`);
     setNewForm({ ministryId: "", shift: "Manhã", selectedMemberIds: [] });
+    setMemberSearch("");
     setShowAddDialog(false);
   };
 
