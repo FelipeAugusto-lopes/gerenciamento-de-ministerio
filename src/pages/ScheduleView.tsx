@@ -9,6 +9,7 @@ import { buildDayBoards, groupSchedulesByDate, type DayBoardMinistry } from "@/l
 import { getVisualMinistry, listVisualMinistries, scheduleBelongsToMinistryFilter } from "@/lib/ministryGrouping";
 import { DayPanel, formatDayHeading } from "@/components/schedule/DayPanel";
 import { MobileScheduleAgenda } from "@/components/schedule/MobileScheduleAgenda";
+import { CalendarImageExportDialog } from "@/components/schedule/CalendarImageExportDialog";
 import { MonthDayCell } from "@/components/schedule/MonthDayCell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { buildMobileAgenda } from "@/lib/mobileAgenda";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight, Search, X, FileDown, Share2, Sun, Moon,
-  LayoutGrid, List, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church,
+  LayoutGrid, List, ImageDown, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church,
 } from "lucide-react";
 
 type ViewMode = "mes" | "semana" | "lista";
@@ -150,6 +151,7 @@ export default function ScheduleView() {
   // Dialogs
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [imageExportOpen, setImageExportOpen] = useState(false);
 
   const orderedMinistries = useMemo(() => sortMinistries(ministries), [ministries]);
   const visualMinistries = useMemo(
@@ -347,6 +349,9 @@ export default function ScheduleView() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar calendário em imagem" onClick={() => setImageExportOpen(true)}>
+            <ImageDown className="h-4 w-4" /> <span className="hidden md:inline">Calendário em imagem</span>
+          </Button>
           <Button variant="outline" size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar PDF" onClick={() => exportMonthToPDF(exportData, exportLabel, exportSchedules, exportTitle)}>
             <FileDown className="h-4 w-4" /> <span className="hidden md:inline">Exportar PDF</span>
           </Button>
@@ -778,6 +783,17 @@ export default function ScheduleView() {
       </Dialog>
 
       {/* ============ SCHEDULE DETAIL DIALOG ============ */}
+      <CalendarImageExportDialog
+        open={imageExportOpen}
+        onOpenChange={setImageExportOpen}
+        schedules={schedules}
+        ministries={orderedMinistries}
+        members={members}
+        year={year}
+        month={month}
+        monthLabel={monthLabel}
+      />
+
       <Dialog open={!!selectedSchedule} onOpenChange={open => !open && setSelectedSchedule(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
