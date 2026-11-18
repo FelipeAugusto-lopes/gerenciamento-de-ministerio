@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { HomeDashboard } from "@/components/HomeDashboard";
+import { getMonthlyMinistryCoverage } from "@/lib/scheduleInsights";
 
 const STATUS_LIST: ScheduleStatus[] = ["Pendente", "Confirmado", "Recusado", "Concluído"];
 
@@ -386,7 +387,7 @@ export default function IndexPage() {
         );
       })()}
 
-      <HomeDashboard year={year} month={month} onSelectDate={setSelectedDate} />
+      <HomeDashboard year={year} month={month} />
 
 
       {/* Calendar */}
@@ -580,37 +581,62 @@ export default function IndexPage() {
         </div>
         )}
 
-        {/* Legend */}
+        {/* Acompanhamento dos ministérios do mês */}
         {viewMode === "month" && (() => {
-            const usedMinistryIds = new Set(
-              Array.from(schedulesByDate.values()).flat().map(s => s.ministryId)
-            );
-            const legend = ministries
-              .filter(m => usedMinistryIds.has(m.id))
-              .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name));
-            if (legend.length === 0) return null;
+            const coverage = getMonthlyMinistryCoverage(ministries, schedules, year, month);
+            const scheduledCount = coverage.filter(item => item.scheduled).length;
+            const missingCount = coverage.length - scheduledCount;
+            if (coverage.length === 0) return null;
             return (
-              <div className="border-t bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="eyebrow mb-1.5">Legenda · {MONTH_NAMES[month]}</p>
+              <div className="border-t bg-muted/20 px-3 py-3 sm:px-4">
+                <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="eyebrow">Ministérios · {MONTH_NAMES[month]}</p>
+                    <p className={cn(
+                      "mt-1 text-xs font-medium",
+                      missingCount > 0 ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300",
+                    )}>
+                      {missingCount > 0
+                        ? `${missingCount} ${missingCount === 1 ? "ministério ainda precisa" : "ministérios ainda precisam"} de escala neste mês.`
+                        : "Todos os ministérios já têm escala neste mês."}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                    {scheduledCount}/{coverage.length} escalados
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {legend.map(min => {
+                  {coverage.map(({ ministry: min, scheduled }) => {
                     const color = MINISTRY_COLORS[min.colorIndex % MINISTRY_COLORS.length];
                     const Icon = getMinistryIcon(min.name);
                     return (
                       <span
                         key={min.id}
-                        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                        style={{
+                        title={scheduled ? "Ministério já incluído em uma escala deste mês" : "Ministério ainda sem escala neste mês"}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium",
+                          !scheduled && "border-dashed border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                        )}
+                        style={scheduled ? {
                           backgroundColor: `hsl(${color} / 0.12)`,
                           color: `hsl(${color})`,
                           borderColor: `hsl(${color} / 0.3)`,
-                        }}
+                        } : undefined}
                       >
-                        <Icon className="h-3 w-3" />
+                        <Icon className="h-3 w-3 shrink-0" />
                         {min.name}
+                        {scheduled ? (
+                          <Check className="h-3 w-3 shrink-0" aria-label="Escalado" />
+                        ) : (
+                          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                            Falta escalar
+                          </span>
+                        )}
                       </span>
                     );
                   })}
+                </div>
+                <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-border/50 pt-2.5">
                   <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
                     ☀️ Manhã
                   </span>

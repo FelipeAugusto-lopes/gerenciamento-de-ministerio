@@ -28,6 +28,30 @@ export interface DayAssignment {
   shift: string;
 }
 
+/**
+ * Mantém todos os ministérios visíveis e informa quais já têm escala no mês.
+ * Escalas de outros meses não alteram o acompanhamento.
+ */
+export function getMonthlyMinistryCoverage<T extends Pick<Ministry, "id" | "name">>(
+  ministries: T[],
+  schedules: Pick<Schedule, "date" | "ministryId">[],
+  year: number,
+  month: number,
+): { ministry: T; scheduled: boolean }[] {
+  const scheduledIds = new Set(
+    schedules
+      .filter(schedule => {
+        const date = new Date(schedule.date + "T12:00:00");
+        return date.getFullYear() === year && date.getMonth() === month;
+      })
+      .map(schedule => schedule.ministryId),
+  );
+
+  return [...ministries]
+    .sort((a, b) => getMinistryOrder(a.name) - getMinistryOrder(b.name))
+    .map(ministry => ({ ministry, scheduled: scheduledIds.has(ministry.id) }));
+}
+
 const SHIFTS: Shift[] = ["Manhã", "Noite"];
 
 /** Horários já usados na visualização. O modelo não inventa outro turno. */

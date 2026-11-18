@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getMinistryColor } from "@/lib/helpers";
 import {
   buildDayBoards,
+  getMonthlyMinistryCoverage,
   groupByShift,
   groupSchedulesByDate,
   membersLongestWithoutServing,
@@ -73,6 +74,34 @@ describe("ranking de escalas", () => {
     const rank = rankScheduleAssignments(october, names, 5);
     expect(rank[0].memberId).toBe("a");
     expect(rank[1].memberId).toBe("b");
+  });
+});
+
+describe("acompanhamento dos ministérios no mês", () => {
+  const ministries = [
+    { id: "projecao", name: "Projeção" },
+    { id: "voluntariado", name: "Voluntariado" },
+    { id: "audio", name: "Áudio" },
+  ];
+  const schedules = [
+    schedule({ id: "1", date: "2026-10-04", ministryId: "audio", shift: "Manhã", memberIds: ["a"] }),
+    schedule({ id: "2", date: "2026-10-11", ministryId: "audio", shift: "Noite", memberIds: ["b"] }),
+    schedule({ id: "3", date: "2026-09-06", ministryId: "projecao", shift: "Noite", memberIds: ["c"] }),
+  ];
+
+  it("mantém todos os ministérios e destaca somente os sem escala no mês exibido", () => {
+    const coverage = getMonthlyMinistryCoverage(ministries, schedules, 2026, 9);
+    expect(coverage.map(item => [item.ministry.id, item.scheduled])).toEqual([
+      ["voluntariado", false],
+      ["audio", true],
+      ["projecao", false],
+    ]);
+  });
+
+  it("atualiza os ministérios pendentes ao mudar de mês", () => {
+    const coverage = getMonthlyMinistryCoverage(ministries, schedules, 2026, 8);
+    expect(coverage.find(item => item.ministry.id === "audio")?.scheduled).toBe(false);
+    expect(coverage.find(item => item.ministry.id === "projecao")?.scheduled).toBe(true);
   });
 });
 
