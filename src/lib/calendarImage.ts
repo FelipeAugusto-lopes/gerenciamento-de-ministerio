@@ -75,13 +75,11 @@ export function renderCalendarImage(opts: {
 }): HTMLCanvasElement {
   const { year, month } = opts;
   const entries = buildCalendarDayEntries(opts.schedules, opts.ministries, opts.members, opts.ministryIds, year, month);
-  const W = 2100;
   const frameMargin = 48;
   const framePadding = 28;
-  const frameWidth = W - frameMargin * 2;
-  const contentWidth = frameWidth - framePadding * 2;
-  const colW = contentWidth / 7;
-  const minRowH = 350;
+  const minRowH = 300;
+  const weekH = 82;
+  const landscapeRatio = 1.45;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
   const font = (size: number, bold = false) => `${bold ? "700" : "500"} ${size}px 'Plus Jakarta Sans', system-ui, sans-serif`;
@@ -90,41 +88,57 @@ export function renderCalendarImage(opts: {
   const days = new Date(year, month + 1, 0).getDate();
   const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
   while (cells.length % 7) cells.push(null);
-
-  const cellLines = cells.map(day => {
-    if (!day) return [] as Line[];
-    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const lines: Line[] = [];
-    let lastShift = "";
-    ctx.font = font(22);
-    (entries.get(date) || []).forEach(entry => {
-      if (entry.shift !== lastShift) {
-        lines.push({
-          text: `${entry.shift === "Manhã" ? "☀" : "☾"}  ${SHIFT_TIMES[entry.shift] || entry.shift}`,
-          type: "shift",
-          gapBefore: lastShift ? 20 : 0,
-        });
-        lastShift = entry.shift;
-      }
-      const names = entry.names.length ? entry.names.join(", ").toUpperCase() : "—";
-      wrap(ctx, `${entry.ministry} · ${names}`, colW - 68).forEach((text, index) => {
-        lines.push({ text, type: "entry", gapBefore: index === 0 ? 10 : 0 });
-      });
-    });
-    return lines;
-  });
-
   const rows = cells.length / 7;
-  const requiredRowH = Math.max(...cellLines.map(lines => 96 + linesHeight(lines) + 28));
-  const rowH = Math.max(minRowH, requiredRowH);
-  const weekH = 82;
-  const frameH = weekH + rows * rowH + framePadding;
-  canvas.width = W;
-  canvas.height = frameH + frameMargin * 2;
+
+  // Meses com muitos nomes precisam de células mais largas para não virar uma imagem alongada.
+  const measure = (width: number) => {
+    const frameWidth = width - frameMargin * 2;
+    const contentWidth = frameWidth - framePadding * 2;
+    const colW = contentWidth / 7;
+    const cellLines = cells.map(day => {
+      if (!day) return [] as Line[];
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const lines: Line[] = [];
+      let lastShift = "";
+      ctx.font = font(22);
+      (entries.get(date) || []).forEach(entry => {
+        if (entry.shift !== lastShift) {
+          lines.push({
+            text: `${entry.shift === "Manhã" ? "☀" : "☾"}  ${SHIFT_TIMES[entry.shift] || entry.shift}`,
+            type: "shift",
+            gapBefore: lastShift ? 20 : 0,
+          });
+          lastShift = entry.shift;
+        }
+        const names = entry.names.length ? entry.names.join(", ").toUpperCase() : "—";
+        wrap(ctx, `${entry.ministry} · ${names}`, colW - 68).forEach((text, index) => {
+          lines.push({ text, type: "entry", gapBefore: index === 0 ? 10 : 0 });
+        });
+      });
+      return lines;
+    });
+    const requiredRowH = Math.max(...cellLines.map(lines => 96 + linesHeight(lines) + 28));
+    const rowH = Math.max(minRowH, requiredRowH);
+    const frameH = weekH + rows * rowH + framePadding;
+    return { frameWidth, contentWidth, colW, cellLines, rowH, frameH };
+  };
+
+  let W = 3000;
+  let layout = measure(W);
+  while (W / (layout.frameH + frameMargin * 2) < landscapeRatio && W < 12000) {
+    W += 500;
+    layout = measure(W);
+  }
+  const { frameWidth, contentWidth, colW, cellLines, rowH, frameH } = layout;
+  const H = frameH + frameMargin * 2;
+  const exportScale = Math.min(1, 4200 / W);
+  canvas.width = Math.round(W * exportScale);
+  canvas.height = Math.round(H * exportScale);
+  ctx.scale(exportScale, exportScale);
 
   // Fundo e moldura única, como no modelo de referência.
   ctx.fillStyle = "#f5f4f0";
-  ctx.fillRect(0, 0, W, canvas.height);
+  ctx.fillRect(0, 0, W, H);
   roundedRect(ctx, frameMargin, frameMargin, frameWidth, frameH, 26);
   ctx.fillStyle = "#ffffff";
   ctx.fill();

@@ -47,7 +47,7 @@ export function CalendarImageExportDialog({ open, onOpenChange, schedules, minis
       <style>
         *{box-sizing:border-box}body{margin:0;background:#f5f4f0;font-family:system-ui,sans-serif}
         img{display:block;width:100%;height:auto;margin:0 auto}
-        @media print{body{background:#fff}img{width:auto;max-width:194mm;max-height:277mm}@page{size:A4 portrait;margin:8mm}}
+        @media print{body{background:#fff}img{width:auto;max-width:281mm;max-height:194mm}@page{size:A4 landscape;margin:8mm}}
       </style></head><body><img alt="Calendário da escala"></body></html>`);
     printWindow.document.close();
     printWindow.document.title = `${title} - ${monthLabel}`;
