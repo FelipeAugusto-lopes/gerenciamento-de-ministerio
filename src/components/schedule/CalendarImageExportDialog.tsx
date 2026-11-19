@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Share2 } from "lucide-react";
+import { Download, FileDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,8 +36,28 @@ export function CalendarImageExportDialog({ open, onOpenChange, schedules, minis
   const download = async () => {
     const url = URL.createObjectURL(await toBlob());
     const a = document.createElement("a"); a.href = url; a.download = fileName; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
+
+  const exportPdf = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const image = build().toDataURL("image/png");
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title></title>
+      <style>
+        *{box-sizing:border-box}body{margin:0;background:#f5f4f0;font-family:system-ui,sans-serif}
+        img{display:block;width:100%;height:auto;margin:0 auto}
+        @media print{body{background:#fff}img{width:auto;max-width:194mm;max-height:277mm}@page{size:A4 portrait;margin:8mm}}
+      </style></head><body><img alt="Calendário da escala"></body></html>`);
+    printWindow.document.close();
+    printWindow.document.title = `${title} - ${monthLabel}`;
+    const img = printWindow.document.querySelector("img");
+    if (img) {
+      img.onload = () => { printWindow.focus(); printWindow.print(); };
+      img.src = image;
+    }
+  };
+
   const share = async () => {
     const file = new File([await toBlob()], fileName, { type: "image/png" });
     if (navigator.canShare?.({ files: [file] })) {
@@ -46,14 +66,22 @@ export function CalendarImageExportDialog({ open, onOpenChange, schedules, minis
   };
 
   const toggle = (id: string) => { setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]); setPreview(null); };
+  const selectAll = () => { setSelected(ministries.map(m => m.id)); setPreview(null); };
+  const clear = () => { setSelected([]); setPreview(null); };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[calc(100%-1.5rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Exportar calendário em imagem</DialogTitle>
-          <DialogDescription>Escolha os ministérios de {monthLabel}. A imagem mostra o nome de cada pessoa e o ministério.</DialogDescription>
+          <DialogTitle>Exportar calendário</DialogTitle>
+          <DialogDescription>
+            Escolha os ministérios de {monthLabel}. O calendário seguirá o modelo com horários, ministérios e nomes das pessoas.
+          </DialogDescription>
         </DialogHeader>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={selectAll}>Selecionar todos</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={clear} disabled={!selected.length}>Limpar seleção</Button>
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ministries.map(m => (
             <label key={m.id} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm">
@@ -64,11 +92,12 @@ export function CalendarImageExportDialog({ open, onOpenChange, schedules, minis
             </label>
           ))}
         </div>
-        {preview && <img src={preview} alt="Prévia do calendário" className="w-full rounded-lg border" />}
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" disabled={!selected.length} onClick={() => setPreview(build().toDataURL("image/png"))}>Ver prévia</Button>
-          <Button variant="outline" disabled={!selected.length} onClick={download} className="gap-1.5"><Download className="h-4 w-4" />Salvar imagem</Button>
-          <Button disabled={!selected.length} onClick={share} className="gap-1.5"><Share2 className="h-4 w-4" />Enviar no WhatsApp</Button>
+        {preview && <img src={preview} alt={`Prévia do calendário de ${monthLabel}`} className="w-full rounded-lg border" />}
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <Button className="w-full sm:w-auto" variant="ghost" disabled={!selected.length} onClick={() => setPreview(build().toDataURL("image/png"))}>Ver prévia</Button>
+          <Button className="w-full gap-1.5 sm:w-auto" variant="outline" disabled={!selected.length} onClick={exportPdf}><FileDown className="h-4 w-4" />Salvar PDF</Button>
+          <Button className="w-full gap-1.5 sm:w-auto" variant="outline" disabled={!selected.length} onClick={download}><Download className="h-4 w-4" />Salvar imagem</Button>
+          <Button className="w-full gap-1.5 sm:w-auto" disabled={!selected.length} onClick={share}><Share2 className="h-4 w-4" />Enviar no WhatsApp</Button>
         </div>
       </DialogContent>
     </Dialog>

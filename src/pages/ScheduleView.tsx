@@ -3,7 +3,7 @@ import { useStore } from "@/store/StoreContext";
 import { formatDate, getDayOfWeek, getMinistryStyle, getMinistryOrder, sortMinistries } from "@/lib/helpers";
 import { MINISTRY_COLORS, type Schedule, type Shift } from "@/types";
 import { getMinistryIcon } from "@/lib/ministryIcons";
-import { exportMonthToPDF, shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
+import { shareMonthViaWhatsApp, SHIFT_TIMES } from "@/lib/exportSchedule";
 import { getWeekDates, shiftWeek } from "@/lib/scheduleWeek";
 import { buildDayBoards, groupSchedulesByDate, type DayBoardMinistry } from "@/lib/scheduleInsights";
 import { getVisualMinistry, listVisualMinistries, scheduleBelongsToMinistryFilter } from "@/lib/ministryGrouping";
@@ -19,7 +19,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { buildMobileAgenda } from "@/lib/mobileAgenda";
 import { cn } from "@/lib/utils";
 import {
-  ChevronLeft, ChevronRight, Search, X, FileDown, Share2, Sun, Moon,
+  ChevronLeft, ChevronRight, Search, X, Share2, Sun, Moon,
   LayoutGrid, List, ImageDown, CalendarRange, Users, CalendarCheck, CalendarClock, Filter, Church,
 } from "lucide-react";
 
@@ -349,11 +349,8 @@ export default function ScheduleView() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar calendário em imagem" onClick={() => setImageExportOpen(true)}>
-            <ImageDown className="h-4 w-4" /> <span className="hidden md:inline">Calendário em imagem</span>
-          </Button>
-          <Button variant="outline" size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar PDF" onClick={() => exportMonthToPDF(exportData, exportLabel, exportSchedules, exportTitle)}>
-            <FileDown className="h-4 w-4" /> <span className="hidden md:inline">Exportar PDF</span>
+          <Button size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Exportar calendário" onClick={() => setImageExportOpen(true)}>
+            <ImageDown className="h-4 w-4" /> <span className="hidden md:inline">Exportar calendário</span>
           </Button>
           <Button variant="outline" size="sm" className="h-11 gap-1.5 px-3 md:h-9" aria-label="Compartilhar" onClick={() => shareMonthViaWhatsApp(exportData, exportLabel, exportSchedules, exportTitle)}>
             <Share2 className="h-4 w-4" /> <span className="hidden md:inline">Compartilhar</span>

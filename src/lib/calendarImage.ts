@@ -1,9 +1,14 @@
-import { MINISTRY_COLORS, type Member, type Ministry, type Schedule } from "@/types";
+import type { Member, Ministry, Schedule } from "@/types";
 import { getMinistryOrder } from "@/lib/helpers";
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const SHIFT_TIMES: Record<string, string> = { Manhã: "10:00", Noite: "18:00" };
 
-interface Line { text: string; color: string; bold?: boolean }
+interface Line {
+  text: string;
+  type: "shift" | "entry";
+  gapBefore?: number;
+}
 
 /** Linhas de cada dia do mês, só com os ministérios escolhidos. */
 export function buildCalendarDayEntries(
@@ -31,12 +36,37 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
   const words = text.split(" ");
   const out: string[] = [];
   let cur = "";
-  words.forEach(w => {
-    const t = cur ? `${cur} ${w}` : w;
-    if (ctx.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t;
+  words.forEach(word => {
+    const candidate = cur ? `${cur} ${word}` : word;
+    if (ctx.measureText(candidate).width > max && cur) {
+      out.push(cur);
+      cur = word;
+    } else {
+      cur = candidate;
+    }
   });
   if (cur) out.push(cur);
   return out;
+}
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function linesHeight(lines: Line[]): number {
+  return lines.reduce((height, line) =>
+    height + (line.gapBefore || 0) + (line.type === "shift" ? 36 : 32), 0);
 }
 
 export function renderCalendarImage(opts: {
@@ -45,11 +75,16 @@ export function renderCalendarImage(opts: {
 }): HTMLCanvasElement {
   const { year, month } = opts;
   const entries = buildCalendarDayEntries(opts.schedules, opts.ministries, opts.members, opts.ministryIds, year, month);
-  const W = 1800, pad = 40, colW = (W - pad * 2) / 7, inner = colW - 20, lineH = 24;
+  const W = 2100;
+  const frameMargin = 48;
+  const framePadding = 28;
+  const frameWidth = W - frameMargin * 2;
+  const contentWidth = frameWidth - framePadding * 2;
+  const colW = contentWidth / 7;
+  const minRowH = 350;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
   const font = (size: number, bold = false) => `${bold ? "700" : "500"} ${size}px 'Plus Jakarta Sans', system-ui, sans-serif`;
-  const showShift = new Set(Array.from(entries.values()).flat().map(e => e.shift)).size > 1;
 
   const first = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
@@ -61,55 +96,114 @@ export function renderCalendarImage(opts: {
     const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const lines: Line[] = [];
     let lastShift = "";
-    (entries.get(date) || []).forEach(e => {
-      if (showShift && e.shift !== lastShift) { lines.push({ text: e.shift === "Manhã" ? "☀ Manhã" : "☾ Noite", color: "#64748b", bold: true }); lastShift = e.shift; }
-      const color = `hsl(${MINISTRY_COLORS[e.colorIndex % MINISTRY_COLORS.length]})`;
-      ctx.font = font(18, true);
-      wrap(ctx, e.ministry, inner).forEach(t => lines.push({ text: t, color, bold: true }));
-      ctx.font = font(18);
-      (e.names.length ? e.names : ["—"]).forEach(n => wrap(ctx, n, inner - 10).forEach(t => lines.push({ text: t, color: "#1e293b" })));
+    ctx.font = font(22);
+    (entries.get(date) || []).forEach(entry => {
+      if (entry.shift !== lastShift) {
+        lines.push({
+          text: `${entry.shift === "Manhã" ? "☀" : "☾"}  ${SHIFT_TIMES[entry.shift] || entry.shift}`,
+          type: "shift",
+          gapBefore: lastShift ? 20 : 0,
+        });
+        lastShift = entry.shift;
+      }
+      const names = entry.names.length ? entry.names.join(", ").toUpperCase() : "—";
+      wrap(ctx, `${entry.ministry} · ${names}`, colW - 68).forEach((text, index) => {
+        lines.push({ text, type: "entry", gapBefore: index === 0 ? 10 : 0 });
+      });
     });
     return lines;
   });
 
   const rows = cells.length / 7;
-  const rowHeights = Array.from({ length: rows }, (_, r) =>
-    Math.max(130, 46 + Math.max(...cellLines.slice(r * 7, r * 7 + 7).map(l => l.length)) * lineH + 12));
-  const headerH = 170, weekH = 50, footerH = 50;
+  const requiredRowH = Math.max(...cellLines.map(lines => 96 + linesHeight(lines) + 28));
+  const rowH = Math.max(minRowH, requiredRowH);
+  const weekH = 82;
+  const frameH = weekH + rows * rowH + framePadding;
   canvas.width = W;
-  canvas.height = headerH + weekH + rowHeights.reduce((a, b) => a + b, 0) + footerH + pad;
+  canvas.height = frameH + frameMargin * 2;
 
-  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, canvas.height);
-  ctx.fillStyle = "#1f4d3a"; ctx.fillRect(0, 0, W, headerH - 20);
-  ctx.fillStyle = "#e0b04a"; ctx.fillRect(0, headerH - 26, W, 6);
-  ctx.textAlign = "center"; ctx.fillStyle = "#ffffff";
-  ctx.font = font(52, true); ctx.fillText(opts.title, W / 2, 78);
-  ctx.font = font(28); ctx.fillStyle = "#f4e3b5";
-  const ml = opts.monthLabel; ctx.fillText(ml.charAt(0).toUpperCase() + ml.slice(1), W / 2, 122);
+  // Fundo e moldura única, como no modelo de referência.
+  ctx.fillStyle = "#f5f4f0";
+  ctx.fillRect(0, 0, W, canvas.height);
+  roundedRect(ctx, frameMargin, frameMargin, frameWidth, frameH, 26);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = "#d8dad4";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
-  let y = headerH;
-  ctx.font = font(20, true);
-  WEEKDAYS.forEach((d, i) => { ctx.fillStyle = "#1f4d3a"; ctx.fillText(d, pad + colW * i + colW / 2, y + 32); });
-  y += weekH;
+  const contentX = frameMargin + framePadding;
+  const gridY = frameMargin + weekH;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = font(21, true);
+  ctx.fillStyle = "#777b75";
+  WEEKDAYS.forEach((weekday, index) => {
+    ctx.fillText(weekday, contentX + colW * index + colW / 2, frameMargin + 48);
+  });
   ctx.textAlign = "left";
-  for (let r = 0; r < rows; r++) {
-    const h = rowHeights[r];
-    for (let c = 0; c < 7; c++) {
-      const idx = r * 7 + c, day = cells[idx], x = pad + colW * c;
-      ctx.fillStyle = day ? (cellLines[idx].length ? "#f8faf7" : "#ffffff") : "#f1f5f9";
-      ctx.fillRect(x, y, colW, h);
-      ctx.strokeStyle = "#d6ddd8"; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, colW, h);
-      if (!day) continue;
-      ctx.font = font(24, true); ctx.fillStyle = "#1f4d3a"; ctx.fillText(String(day), x + 10, y + 32);
-      let ly = y + 62;
-      cellLines[idx].forEach(l => {
-        ctx.font = font(l.bold ? 17 : 18, l.bold); ctx.fillStyle = l.color;
-        ctx.fillText(l.text, x + (l.bold ? 10 : 18), ly); ly += lineH;
-      });
+
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+  const todayDay = isCurrentMonth ? today.getDate() : null;
+
+  for (let index = 0; index < cells.length; index++) {
+    const day = cells[index];
+    if (!day) continue;
+    const row = Math.floor(index / 7);
+    const column = index % 7;
+    const cellX = contentX + column * colW;
+    const cellY = gridY + row * rowH;
+    const lines = cellLines[index];
+    const hasSchedules = lines.length > 0;
+    const cardX = cellX + 8;
+    const cardY = cellY + 6;
+    const cardW = colW - 16;
+    const cardH = rowH - 12;
+    const isToday = day === todayDay;
+
+    if (hasSchedules) {
+      roundedRect(ctx, cardX, cardY, cardW, cardH, 26);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.strokeStyle = isToday ? "#555b57" : "#d7dad5";
+      ctx.lineWidth = isToday ? 4 : 2;
+      ctx.stroke();
     }
-    y += h;
+
+    const numberX = hasSchedules ? cardX + 25 : cellX + 25;
+    const numberY = cellY + 47;
+    if (isToday) {
+      ctx.beginPath();
+      ctx.arc(numberX + 10, numberY - 11, 24, 0, Math.PI * 2);
+      ctx.fillStyle = "#454a47";
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.font = font(27, true);
+      ctx.fillText(String(day), numberX + 10, numberY);
+      ctx.textAlign = "left";
+    } else {
+      ctx.fillStyle = "#373b37";
+      ctx.font = font(27, true);
+      ctx.fillText(String(day), numberX, numberY);
+    }
+
+    let lineY = cellY + 94;
+    lines.forEach(line => {
+      lineY += line.gapBefore || 0;
+      if (!line.text) return;
+      if (line.type === "shift") {
+        ctx.font = font(23);
+        ctx.fillStyle = line.text.startsWith("☀") ? "#a8893e" : "#7181a5";
+      } else {
+        ctx.font = font(22);
+        ctx.fillStyle = "#515550";
+      }
+      ctx.fillText(line.text, cardX + 25, lineY);
+      lineY += line.type === "shift" ? 36 : 32;
+    });
   }
-  ctx.textAlign = "center"; ctx.font = font(16); ctx.fillStyle = "#94a3b8";
-  ctx.fillText("INA Escalas · Igreja Nova Aliança", W / 2, y + 34);
+
   return canvas;
 }
